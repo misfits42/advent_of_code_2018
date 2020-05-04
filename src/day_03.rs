@@ -4,6 +4,7 @@ use std::collections::HashSet;
 
 use super::utils::map::Point2D;
 
+#[derive(Copy, Clone, Hash, PartialEq, Eq)]
 struct FabricClaim {
     top_left_loc: Point2D,
     width: u64,
@@ -21,31 +22,32 @@ impl FabricClaim {
 }
 
 #[aoc_generator(day3)]
-fn generate_input(input: &str) -> Vec<FabricClaim> {
+fn generate_input(input: &str) -> Vec<(u64, FabricClaim)> {
     // Initialise empty vector to store parsed results
-    let mut results: Vec<FabricClaim> = vec![];
+    let mut results: Vec<(u64, FabricClaim)> = vec![];
     // Capture data fields using regex
     let claim_regex = Regex::new(r"#(\d+) @ (\d+),(\d+): (\d+)x(\d+)").unwrap();
     for capture in claim_regex.captures_iter(input) {
         // Extract capture fields needed for the FabricClaim
-        let _claim_number = capture[1].parse::<u64>().unwrap();
+        let claim_number = capture[1].parse::<u64>().unwrap();
         let top_left_x = capture[2].parse::<i64>().unwrap();
         let top_left_y = capture[3].parse::<i64>().unwrap();
         let width = capture[4].parse::<u64>().unwrap();
         let height = capture[5].parse::<u64>().unwrap();
         // Create FabricClaim and add to results
         let fabric_claim = FabricClaim::new(top_left_x, top_left_y, width, height);
-        results.push(fabric_claim)
+        results.push((claim_number, fabric_claim))
     }
     return results;
 }
 
 #[aoc(day3, part1)]
-fn solve_part_1(input: &Vec<FabricClaim>) -> usize {
+fn solve_part_1(input: &Vec<(u64, FabricClaim)>) -> usize {
     // Initialise hashmap to track state of claims
     let mut claims_map: HashMap<Point2D, u64> = HashMap::new();
     let mut overlap_spots: HashSet<Point2D> = HashSet::new();
     // Process each claim
+    let input: Vec<FabricClaim> = input.iter().map(|x| x.1).collect();
     for claim in input {
         let start = claim.top_left_loc;
         // Iterate over all points covered by current claim

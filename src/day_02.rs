@@ -58,3 +58,37 @@ fn solve_part_1(input: &[(String, HashMap<u32, Vec<char>>)]) -> u32 {
     let checksum = two_letters * three_letters;
     return checksum;
 }
+
+#[aoc(day2, part2)]
+fn solve_part_2(input: &[(String, HashMap<u32, Vec<char>>)]) -> String {
+    // Starting from first, compare current box_id to all following
+    for current_index in 0..input.len() {
+        for target_index in (current_index+1)..input.len() {
+            // Compare each character of the pair
+            let mut mismatch_count = 0;
+            let mut match_str = String::new();
+            let current_id = &input[current_index].0;
+            let target_id = &input[target_index].0;
+            for i in 0..current_id.len() {
+                // Get current character pair
+                let current_char = current_id.get(i..i+1).unwrap();
+                let target_char = target_id.get(i..i+1).unwrap();
+                // Check if characters do not match
+                if current_char != target_char {
+                    mismatch_count += 1;
+                } else { // Characters match, so add to match string
+                    match_str.push_str(current_char);
+                }
+                // Check if we have exceeded valid mismatch total
+                if mismatch_count >= 2 {
+                    break;
+                }
+            }
+            // Check if we have found the valid pair of box IDs
+            if mismatch_count == 1 {
+                return match_str;
+            }
+        }
+    }
+    panic!("D2_P2 - shouldn't get here!");
+}

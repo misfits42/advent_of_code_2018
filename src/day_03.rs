@@ -47,12 +47,11 @@ fn solve_part_1(input: &Vec<(u64, FabricClaim)>) -> usize {
     let mut claims_map: HashMap<Point2D, u64> = HashMap::new();
     let mut overlap_spots: HashSet<Point2D> = HashSet::new();
     // Process each claim
-    let input: Vec<FabricClaim> = input.iter().map(|x| x.1).collect();
-    for claim in input {
-        let start = claim.top_left_loc;
+    for (_, fabric_claim) in input {
+        let start = fabric_claim.top_left_loc;
         // Iterate over all points covered by current claim
-        for delta_x in 0..claim.width {
-            for delta_y in 0..claim.height {
+        for delta_x in 0..fabric_claim.width {
+            for delta_y in 0..fabric_claim.height {
                 // Calculate current point
                 let claim_point = start.move_point(delta_x as i64, delta_y as i64);
                 // Check if point is already claimed
@@ -68,4 +67,42 @@ fn solve_part_1(input: &Vec<(u64, FabricClaim)>) -> usize {
         }
     }
     return overlap_spots.len();
+}
+
+#[aoc(day3, part2)]
+fn solve_part_2(input: &Vec<(u64, FabricClaim)>) -> u64 {
+    // Initialise claims map
+    let mut claims_map: HashMap<Point2D, Vec<u64>> = HashMap::new();
+    // Process each claim
+    for (claim_number, fabric_claim) in input {
+        let start = fabric_claim.top_left_loc;
+        // Iterate over all points covered by fabric claim
+        for delta_x in 0..fabric_claim.width {
+            for delta_y in 0..fabric_claim.height {
+                // Calculate current point
+                let claim_point = start.move_point(delta_x as i64, delta_y as i64);
+                if claims_map.contains_key(&claim_point) { // Add point to existing claim
+                    claims_map.get_mut(&claim_point).unwrap().push(*claim_number);
+                } else { // Add point to new claim
+                    claims_map.insert(claim_point, vec![*claim_number]);
+                }
+            }
+        }
+    }
+    // Find all claims that overlap
+    let mut overlaps: HashSet<u64> = HashSet::new();
+    let all_claim_numbers: Vec<u64> = input.into_iter().map(|x| x.0).collect::<Vec<u64>>();
+    for val in claims_map.values() {
+        if val.len() >= 2 {
+            for v in val {
+                overlaps.insert(*v);
+            }
+        }
+    }
+    for claim_number in all_claim_numbers {
+        if !overlaps.contains(&claim_number) {
+            return claim_number;
+        }
+    }
+    panic!("D3_P2 - should not get here!");
 }

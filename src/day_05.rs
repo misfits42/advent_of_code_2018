@@ -19,18 +19,18 @@ fn solve_part_2(input: &Vec<char>) -> usize {
         .map(|x| x.to_ascii_lowercase())
         .collect::<HashSet<char>>();
     // Keep track of min length observed
-    let mut min_polymer_seen = usize::MAX;
+    let mut min_polymer_length = usize::MAX;
     for unit_type in unit_types {
         let mut test_polymer = input.clone();
         // Remove all instances of current unit type from test polymer
         test_polymer.retain(|x| *x != unit_type && *x != unit_type.to_ascii_uppercase());
         // Fully react the test polymer and check if it is the shortest seen so far
         let reacted_polymer = react_polymer(&test_polymer);
-        if reacted_polymer.len() < min_polymer_seen {
-            min_polymer_seen = reacted_polymer.len();
+        if reacted_polymer.len() < min_polymer_length {
+            min_polymer_length = reacted_polymer.len();
         }
     }
-    return min_polymer_seen;
+    return min_polymer_length;
 }
 
 /// Fully reacts the given input polymer, progressively destroying all type-pairs of opposite

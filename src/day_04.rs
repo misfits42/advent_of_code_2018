@@ -1,18 +1,19 @@
 use regex::Regex;
+use std::collections::HashMap;
 
 /// Struct used to represent a watch period conducted by a guard. The sleep periods are inclusive of
 /// the start time, but do not include the last time (which is the time the guard work up again).
 #[derive(Clone, Hash, PartialEq, Eq, Debug)]
 struct GuardWatch {
-    guard_id: u64,
+    id: u64,
     start_watch: String,
     sleep_periods: Vec<(String, String)>,
 }
 
 impl GuardWatch {
-    pub fn new(guard_id: u64, start_watch: String) -> Self {
+    pub fn new(id: u64, start_watch: String) -> Self {
         Self {
-            guard_id: guard_id,
+            id: id,
             start_watch: start_watch,
             sleep_periods: vec![],
         }
@@ -73,8 +74,72 @@ fn generate_input(input: &str) -> Vec<GuardWatch> {
 
 #[aoc(day4, part1)]
 fn solve_part_1(input: &Vec<GuardWatch>) -> u64 {
-    // for item in input {
-    //     println!("{:?}", item);
-    // }
-    return 1;
+    // Process each guard watch and add up all minutes asleep by each guard
+    let mut sleep_sheets: HashMap<u64, HashMap<u64, u64>> = HashMap::new();
+    let mut sleep_totals: HashMap<u64, u64> = HashMap::new();
+    // Initialise variables to keep track of sleepiest guard
+    let mut sleepiest_guard = 0;
+    let mut max_sleep = 0;
+    // Process each sleep period from each guard watch
+    for guard_watch in input {
+        for sleep_period in &guard_watch.sleep_periods {
+            let sleep_mins = calculate_sleep_period_minutes(sleep_period);
+            // Check if guard has already been seen
+            if sleep_sheets.contains_key(&guard_watch.id) {
+                let existing_sleep_sheet = sleep_sheets.get_mut(&guard_watch.id).unwrap();
+                for i in sleep_mins.0..sleep_mins.1 {
+                    *existing_sleep_sheet.get_mut(&i).unwrap() += 1;
+                }
+                *sleep_totals.get_mut(&guard_watch.id).unwrap() += sleep_mins.1 - sleep_mins.0;
+            } else { // Add guard sleep times new
+                let mut new_sleep_sheet: HashMap<u64, u64> = create_new_guard_sleep_sheet();
+                for i in sleep_mins.0..sleep_mins.1 {
+                    *new_sleep_sheet.get_mut(&i).unwrap() += 1;
+                }
+                sleep_sheets.insert(guard_watch.id, new_sleep_sheet);
+                sleep_totals.insert(guard_watch.id, sleep_mins.1 - sleep_mins.0);
+            }
+            // Check if we have a new max sleep value - have we found a more sleepy guard?
+            if *sleep_totals.get(&guard_watch.id).unwrap() > max_sleep {
+                max_sleep = *sleep_totals.get(&guard_watch.id).unwrap();
+                sleepiest_guard = guard_watch.id;
+            }
+        }
+    }
+    // Find minute when guard was asleep most
+    max_sleep = 0;
+    let mut max_sleep_minute = 0;
+    for (k, v) in sleep_sheets.get(&sleepiest_guard).unwrap().iter() {
+        if *v > max_sleep {
+            max_sleep = *v;
+            max_sleep_minute = *k;
+        }
+    }
+    return sleepiest_guard * max_sleep_minute;
+}
+
+/// Extracts the minutes field from the two timestamps in the sleep period.
+fn calculate_sleep_period_minutes(sleep_period: &(String, String)) -> (u64, u64) {
+    // Create regex to extract minutes field
+    let minute_regex = Regex::new(r"(.*?) (\d+):(\d+)").unwrap();
+    for s_capture in minute_regex.captures_iter(&sleep_period.0) {
+        // Find sleep start minute
+        let sleep_minute = s_capture[3].parse::<u64>().unwrap();
+        // Find sleep end minute (minute of awakening)
+        for a_capture in minute_regex.captures_iter(&sleep_period.1) {
+            let awake_minute = a_capture[3].parse::<u64>().unwrap();
+            // Add the sleep period to the sleep sheet
+            return (sleep_minute, awake_minute);
+        }
+    }
+    panic!("D4 - should not get here!");
+}
+
+/// Creates a new guard sleep sheet with slot for each minute initialised to 0.
+fn create_new_guard_sleep_sheet() -> HashMap<u64, u64> {
+    let mut sleep_sheet: HashMap<u64, u64> = HashMap::new();
+    for i in 0..60 {
+        sleep_sheet.insert(i, 0);
+    }
+    return sleep_sheet;
 }

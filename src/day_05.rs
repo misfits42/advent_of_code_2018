@@ -7,14 +7,14 @@ fn generate_input(input: &str) -> Vec<char> {
 
 #[aoc(day5, part1)]
 fn solve_part_1(input: &Vec<char>) -> usize {
-    let mut polymer = react_polymer(input);
+    let polymer = react_polymer(input);
     return polymer.len();
 }
 
 #[aoc(day5, part2)]
 fn solve_part_2(input: &Vec<char>) -> usize {
     // Get all unique unit types in the input polymer
-    let mut unit_types: HashSet<char> = input
+    let unit_types: HashSet<char> = input
         .into_iter()
         .map(|x| x.to_ascii_lowercase())
         .collect::<HashSet<char>>();

@@ -13,11 +13,19 @@ impl Point2D {
         }
     }
 
-    // Calculates the new point moved by the given amount in the x- and y-directions.
+    /// Calculates the new point moved by the given amount in the x- and y-directions.
     pub fn move_point(&self, delta_x: i64, delta_y: i64) -> Point2D {
         return Point2D {
             pos_x: self.pos_x + delta_x,
             pos_y: self.pos_y + delta_y,
         }
+    }
+
+    /// Calculates the Manhattan distance between current point and given point.
+    pub fn calculate_manhattan_dist(&self, other: &Point2D) -> u64 {
+        // Calculate distance in x- and y-axes
+        let x_diff = (self.pos_x - other.pos_x).abs();
+        let y_diff = (self.pos_y - other.pos_y).abs();
+        return (x_diff + y_diff) as u64;
     }
 }

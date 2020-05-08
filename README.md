@@ -1,5 +1,7 @@
 # Advent of Code 2018
 
+Implemented using the [cargo-aoc](https://github.com/gobanos/cargo-aoc) tool.
+
 My AOC 2018 completions:
 
 | Day   | Part 1 completed  | Part 2 completed      |

@@ -2,6 +2,7 @@
 extern crate aoc_runner_derive;
 
 extern crate regex;
+extern crate petgraph;
 
 pub mod utils;
 
@@ -11,5 +12,6 @@ pub mod day_03;
 pub mod day_04;
 pub mod day_05;
 pub mod day_06;
+pub mod day_07;
 
 aoc_lib!{ year = 2018 }

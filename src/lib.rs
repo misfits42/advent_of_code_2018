@@ -3,7 +3,6 @@ extern crate aoc_runner_derive;
 
 extern crate regex;
 extern crate petgraph;
-extern crate uuid;
 
 pub mod utils;
 

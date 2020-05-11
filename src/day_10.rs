@@ -143,3 +143,15 @@ fn solve_part_1(input: &LightPointSim) -> i64 {
         }
     }
 }
+
+#[aoc(day10, part2)]
+fn solve_part_2(input: &LightPointSim) -> u64 {
+    let mut light_point_sim = input.get_copy();
+    loop {
+        light_point_sim.step_sim();
+        let box_size = light_point_sim.calculate_box_size();
+        if box_size < 1000 {
+            return light_point_sim.get_total_steps();
+        }
+    }
+}

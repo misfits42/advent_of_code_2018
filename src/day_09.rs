@@ -16,7 +16,7 @@ struct MarbleGame {
 
 impl MarbleGame {
     /// Creates a new instance of the MarbleGame.
-    /// 
+    ///
     /// Current player is set to 1 (the first player up). The last marble played is set to 0, which
     /// is added to the circle prior to the first player taking their first turn. All player scores
     /// are initialised to 0.
@@ -60,6 +60,12 @@ impl MarbleGame {
             }
             // Increment the last marble placed
             self.last_marble_placed += 1;
+            // if self.last_marble_placed % 100000 == 0 {
+            //     println!(
+            //         "D9_P2 - Placing marble {} out of {}...",
+            //         self.last_marble_placed, self.last_marble_points
+            //     );
+            // }
             // Check if we are at special case of multiple-of-23
             if self.last_marble_placed % 23 == 0 {
                 // Update score of current player
@@ -83,6 +89,8 @@ impl MarbleGame {
                 // Get score of marb to remove and add to score of current player
                 let rem_mark_score = self.marbles.remove(marb_to_remove).unwrap();
                 *self.player_scores.get_mut(&self.current_player).unwrap() += rem_mark_score;
+            // Print out updated score
+            //// println!("[{} // {}] Score update [{}] - {}", self.last_marble_placed, self.last_marble_points, self.current_player, self.player_scores.get(&self.current_player).unwrap());
             } else {
                 // Determine index to insert marble at
                 let index = (self.current_marble + 2) % self.marbles.len();
@@ -112,7 +120,7 @@ fn generate_input(input: &str) -> (u64, u64) {
     for capture in input_regex.captures_iter(input) {
         let num_players = capture[1].parse::<u64>().unwrap();
         let last_marble_points = capture[2].parse::<u64>().unwrap();
-        return (num_players, last_marble_points)
+        return (num_players, last_marble_points);
     }
     panic!("Day9_gen - should not get here!");
 }
@@ -120,6 +128,13 @@ fn generate_input(input: &str) -> (u64, u64) {
 #[aoc(day9, part1)]
 fn solve_part_1(marble_game_params: &(u64, u64)) -> u64 {
     let mut marble_game = MarbleGame::new(marble_game_params.0, marble_game_params.1);
+    marble_game.play_game();
+    return marble_game.get_winning_score();
+}
+
+#[aoc(day9, part2)]
+fn solve_part_2(marble_game_params: &(u64, u64)) -> u64 {
+    let mut marble_game = MarbleGame::new(marble_game_params.0, marble_game_params.1 * 100);
     marble_game.play_game();
     return marble_game.get_winning_score();
 }

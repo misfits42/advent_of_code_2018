@@ -1,3 +1,5 @@
+use std::fmt;
+
 /// A simple struct used to represent a 2-dimensional point in Euclidian space.
 #[derive(Copy, Clone, Hash, PartialEq, Eq)]
 pub struct Point2D {
@@ -27,5 +29,11 @@ impl Point2D {
         let x_diff = (self.pos_x - other.pos_x).abs();
         let y_diff = (self.pos_y - other.pos_y).abs();
         return (x_diff + y_diff) as u64;
+    }
+}
+
+impl fmt::Display for Point2D {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        return write!(f, "<Point2D>[x: {}, y: {}]", self.pos_x, self.pos_y);
     }
 }

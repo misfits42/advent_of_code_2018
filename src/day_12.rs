@@ -163,7 +163,7 @@ fn generate_input(input: &str) -> PlantSim {
     return PlantSim::new(plant_pots, plant_recipes);
 }
 
-#[aoc(day12, part2)]
+#[aoc(day12, part1)]
 fn solve_part_1(input: &PlantSim) -> i64 {
     // Create the PlantSim
     let mut plant_sim = input.duplicate();
@@ -173,6 +173,13 @@ fn solve_part_1(input: &PlantSim) -> i64 {
     }
     // Get the sum of all plant pot numbers bearing plants
     return plant_sim.get_plant_pot_sum();
+}
+
+#[aoc(day12, part2)]
+fn solve_part_2(input: &PlantSim) -> i64 {
+    // Create the PlantSim
+    let mut plant_sim = input.duplicate();
+    unimplemented!();
 }
 
 /// Converts the raw recipe number into an integer, modelling the raw string as a binary number. In

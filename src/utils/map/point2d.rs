@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::fmt;
 
 /// A simple struct used to represent a 2-dimensional point in Euclidian space.
@@ -35,5 +36,29 @@ impl Point2D {
 impl fmt::Display for Point2D {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         return write!(f, "<Point2D>[x: {}, y: {}]", self.pos_x, self.pos_y);
+    }
+}
+
+impl Ord for Point2D {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if self.pos_x < other.pos_x {
+            return Ordering::Less;
+        } else if self.pos_x == other.pos_x {
+            if self.pos_y < other.pos_y {
+                return Ordering::Less;
+            } else if self.pos_y == other.pos_y {
+                return Ordering::Equal;
+            } else {
+                return Ordering::Greater;
+            }
+        } else {
+            return Ordering::Greater;
+        }
+    }
+}
+
+impl PartialOrd for Point2D {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        return Some(self.cmp(other));
     }
 }

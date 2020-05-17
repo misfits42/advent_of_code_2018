@@ -179,7 +179,13 @@ fn solve_part_1(input: &PlantSim) -> i64 {
 fn solve_part_2(input: &PlantSim) -> i64 {
     // Create the PlantSim
     let mut plant_sim = input.duplicate();
-    unimplemented!();
+    // Calculate plant pot sum to to generation after which the increase stabilises
+    for _ in 0..186 { // Pot num sum increase stabilises after 184'th generation
+        plant_sim.conduct_generation();
+    }
+    // Calculate total sum resulting from remaining generations up to 50 billion'th generation
+    let delta = (50000000000 - plant_sim.total_gen as i64) * 96;
+    return plant_sim.get_plant_pot_sum() + delta;
 }
 
 /// Converts the raw recipe number into an integer, modelling the raw string as a binary number. In

@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::fmt;
 
 /// A simple struct used to represent a 2-dimensional point in Euclidian space.
-#[derive(Copy, Clone, Hash, PartialEq, Eq)]
+#[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
 pub struct Point2D {
     pub pos_x: i64,
     pub pos_y: i64,

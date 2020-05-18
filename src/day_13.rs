@@ -56,6 +56,7 @@ impl CropCart {
 struct CartMap {
     crop_carts: HashMap<Point2D, Vec<CropCart>>,
     track_map: HashMap<Point2D, TrackElement>,
+    crash_sites: Vec<Point2D>,
 }
 
 impl CartMap {
@@ -63,10 +64,13 @@ impl CartMap {
     pub fn new(init_crop_carts: HashMap<Point2D, Vec<CropCart>>, init_track_map: HashMap<Point2D, TrackElement>) -> Self {
         Self {
             crop_carts: init_crop_carts,
-            track_map: init_track_map
+            track_map: init_track_map,
+            crash_sites: vec![],
         }
     }
 
+    /// Creates a duplicate of the CartMap. All internal data structures and resident data is copied
+    /// across.
     pub fn duplicate(&self) -> Self {
         Self {
             crop_carts: {
@@ -82,15 +86,9 @@ impl CartMap {
                     map.insert(*k, *v);
                 }
                 map
-            }
+            },
+            crash_sites: vec![],
         }
-    }
-
-    /// Conducts tick along of all carts, removing any crashed carts as the crashes occur. If
-    /// another cart crashed into a cart that has not yet had its turn in the current tick, both
-    /// carts will still be removed from the cart map.
-    pub fn tick_along_carts_with_remove(&mut self) {
-        unimplemented!();
     }
 
     /// Gets the current direction of the cart at the given location. None is returned if a cart is
@@ -131,9 +129,23 @@ impl CartMap {
         }
     }
 
-    /// Ticks along all carts, unless a crash occurs. If a crash occurs, the function stops ticking
-    /// along carts and returns the location of the first crash. Otherwise, None is returned.
-    pub fn tick_along_carts(&mut self) -> Option<Point2D> {
+    /// Adds the given location to the list of crash sites.
+    fn add_crash_site(&mut self, crash_site: Point2D) {
+        self.crash_sites.push(crash_site);
+    }
+
+    /// Returns the total number of crash sites so far.
+    pub fn get_crash_site_count(&self) -> usize {
+        return self.crash_sites.len();
+    }
+
+    /// Generates and returns a copy of the list of crash sites.
+    pub fn get_crash_sites(&self) -> Vec<Point2D> {
+        return self.crash_sites.to_vec();
+    }
+
+    /// Ticks along all carts, halting on first crash according to flag passed to method.
+    pub fn tick_along_carts(&mut self, halt_on_crash: bool) {
         // Get list of cart starting points in order
         let mut start_points = self.crop_carts.keys().map(|x| *x).collect::<Vec<Point2D>>();
         start_points.sort();
@@ -169,12 +181,15 @@ impl CartMap {
             if self.crop_carts.contains_key(&new_point) {
                 // Handle the crash
                 let cart = self.crop_carts.get(&start_point).unwrap()[0];
+                self.add_crash_site(new_point);
                 // Add the cart to the crash site
                 self.crop_carts.get_mut(&new_point).unwrap().push(cart);
                 // Remove cart from old location
                 self.crop_carts.remove(&start_point);
-                // Return the location of the crash site
-                return Some(new_point);
+                // Check if we need to halt on crash
+                if halt_on_crash {
+                    return;
+                }
             } else {
                 // Add cart to new location
                 let cart = self.crop_carts.get(&start_point).unwrap()[0];
@@ -183,8 +198,6 @@ impl CartMap {
                 self.crop_carts.remove(&start_point);
             }
         }
-        // No crash occurred, so return None
-        return None;
     }
 }
 
@@ -287,16 +300,12 @@ fn solve_part_1(input: &CartMap) -> String {
     // Duplicate the cart map
     let mut cart_map = input.duplicate();
     loop {
-        // Tick along the carts
-        let crash_site = cart_map.tick_along_carts();
+        // Tick along the carts - halting when first crash occurs
+        cart_map.tick_along_carts(true);
         // Check if a crash has occurred
-        match crash_site {
-            Some(crash_loc) => {
-                return format!("{},{}", crash_loc.pos_x, crash_loc.pos_y);
-            },
-            None => {
-                continue;
-            }
+        if cart_map.get_crash_site_count() == 1 {
+            let crash_site = cart_map.get_crash_sites()[0];
+            return format!("{},{}", crash_site.pos_x, crash_site.pos_y);
         }
     }
 }

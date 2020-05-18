@@ -20,21 +20,15 @@ enum TrackElement {
 #[derive(Copy, Clone)]
 struct CropCart {
     next_turn_dir: CartTurnDirection,
-    location: Point2D,
     direction: Direction,
 }
 
 impl CropCart {
-    pub fn new(init_loc: Point2D, init_direction: Direction) -> Self {
+    pub fn new(init_direction: Direction) -> Self {
         Self {
             next_turn_dir: CartTurnDirection::Left,
-            location: init_loc,
             direction: init_direction,
         }
-    }
-
-    pub fn update_location(&mut self, delta_x: i64, delta_y: i64) {
-        self.location = self.location.move_point(delta_x, delta_y);
     }
 
     pub fn rotate_next_turn_direction(&mut self) {
@@ -56,10 +50,6 @@ impl CropCart {
                 CartTurnDirection::Left
             }
         }
-    }
-
-    pub fn update_direction(&mut self, new_direction: Direction) {
-        self.direction = new_direction;
     }
 }
 
@@ -96,6 +86,51 @@ impl CartMap {
         }
     }
 
+    /// Conducts tick along of all carts, removing any crashed carts as the crashes occur. If
+    /// another cart crashed into a cart that has not yet had its turn in the current tick, both
+    /// carts will still be removed from the cart map.
+    pub fn tick_along_carts_with_remove(&mut self) {
+        unimplemented!();
+    }
+
+    /// Gets the current direction of the cart at the given location. None is returned if a cart is
+    /// not present at the given location.
+    fn get_cart_direction(&self, location: Point2D) -> Option<Direction> {
+        if !self.crop_carts.contains_key(&location) {
+            return None;
+        }
+        return Some(self.crop_carts.get(&location).unwrap()[0].direction);
+    }
+
+    /// Gets the next point the cart at the given location would be in if it moved one unit in its
+    /// current direction.
+    /// 
+    /// This function calls panic! if the given location does not contain a crop cart.
+    fn get_shifted_point(&self, location: Point2D) -> Point2D {
+        // Get cart direction
+        let cart_direction_opt = self.get_cart_direction(location);
+        // Get if we have valid cart direction
+        if cart_direction_opt == None {
+            panic!("PANIC - Day 13 - tried to get direction of non-existent cart.");
+        }
+        let cart_direction = cart_direction_opt.unwrap();
+        // Calculate next point based on current direction
+        match cart_direction {
+            Direction::North => {
+                location.move_point(0, -1)
+            },
+            Direction::South => {
+                location.move_point(0, 1)
+            },
+            Direction::East => {
+                location.move_point(1, 0)
+            },
+            Direction::West => {
+                location.move_point(-1, 0)
+            }
+        }
+    }
+
     /// Ticks along all carts, unless a crash occurs. If a crash occurs, the function stops ticking
     /// along carts and returns the location of the first crash. Otherwise, None is returned.
     pub fn tick_along_carts(&mut self) -> Option<Point2D> {
@@ -111,60 +146,23 @@ impl CartMap {
             let track_element = self.track_map.get(&start_point).unwrap();
             let new_point = match track_element {
                 TrackElement::TrackStraight => {
-                    match self.crop_carts.get(&start_point).unwrap()[0].direction {
-                        Direction::North => {
-                            start_point.move_point(0, -1)
-                        },
-                        Direction::South => {
-                            start_point.move_point(0, 1)
-                        },
-                        Direction::East => {
-                            start_point.move_point(1, 0)
-                        },
-                        Direction::West => {
-                            start_point.move_point(-1, 0)
-                        }
-                    }
+                    self.get_shifted_point(start_point)
                 },
                 TrackElement::TrackIntersection => {
                     // Rotate the cart direction
                     self.crop_carts.get_mut(&start_point).unwrap()[0].rotate_next_turn_direction();
-                    match self.crop_carts.get(&start_point).unwrap()[0].direction {
-                        Direction::North => {
-                            start_point.move_point(0, -1)
-                        },
-                        Direction::South => {
-                            start_point.move_point(0, 1)
-                        },
-                        Direction::East => {
-                            start_point.move_point(1, 0)
-                        },
-                        Direction::West => {
-                            start_point.move_point(-1, 0)
-                        }
-                    }
+                    self.get_shifted_point(start_point)
                 },
                 TrackElement::TrackCorner(dir1, dir2) => {
-                    let cart_dir = self.crop_carts.get(&start_point).unwrap()[0].direction;
+                    // We know start point will contain a cart, so we can unwrap straight away
+                    let cart_dir = self.get_cart_direction(start_point).unwrap();
+                    // Check which direction the cart entered the corner from
                     if cart_dir.is_opposite(*dir1) {
                         self.crop_carts.get_mut(&start_point).unwrap()[0].direction = *dir2;
                     } else {
                         self.crop_carts.get_mut(&start_point).unwrap()[0].direction = *dir1;
                     }
-                    match self.crop_carts.get(&start_point).unwrap()[0].direction {
-                        Direction::North => {
-                            start_point.move_point(0, -1)
-                        },
-                        Direction::South => {
-                            start_point.move_point(0, 1)
-                        },
-                        Direction::East => {
-                            start_point.move_point(1, 0)
-                        },
-                        Direction::West => {
-                            start_point.move_point(-1, 0)
-                        }
-                    }
+                    self.get_shifted_point(start_point)
                 }
             };
             // Check if new point already has a cart
@@ -187,24 +185,6 @@ impl CartMap {
         }
         // No crash occurred, so return None
         return None;
-    }
-}
-
-/// Gets the resulting point if the given point is shifted one unit in the given direction.
-fn get_shifted_point(direction: Direction, start_point: Point2D) -> Point2D {
-    match direction {
-        Direction::North => {
-            return start_point.move_point(0, -1);
-        },
-        Direction::South => {
-            return start_point.move_point(0, 1);
-        },
-        Direction::East => {
-            return start_point.move_point(1, 0);
-        },
-        Direction::West => {
-            return start_point.move_point(-1, 0);
-        }
     }
 }
 
@@ -243,19 +223,19 @@ fn generate_input(input: &str) -> CartMap {
                 },
                 'v' => { // South-bound cart
                     track_map.insert(current_loc, TrackElement::TrackStraight);
-                    crop_carts.insert(current_loc, vec![CropCart::new(current_loc, Direction::South)]); 
+                    crop_carts.insert(current_loc, vec![CropCart::new(Direction::South)]); 
                 },
                 '^' => { // North-bound cart
                     track_map.insert(current_loc, TrackElement::TrackStraight);
-                    crop_carts.insert(current_loc, vec![CropCart::new(current_loc, Direction::North)]);
+                    crop_carts.insert(current_loc, vec![CropCart::new(Direction::North)]);
                 },
                 '<' => { // West-bound cart
                     track_map.insert(current_loc, TrackElement::TrackStraight);
-                    crop_carts.insert(current_loc, vec![CropCart::new(current_loc, Direction::West)]);
+                    crop_carts.insert(current_loc, vec![CropCart::new(Direction::West)]);
                 },
                 '>' => { // East-bound cart
                     track_map.insert(current_loc, TrackElement::TrackStraight);
-                    crop_carts.insert(current_loc, vec![CropCart::new(current_loc, Direction::East)]);
+                    crop_carts.insert(current_loc, vec![CropCart::new(Direction::East)]);
                 },
                 '\\' => { // Left-slant corner
                     // Check for north & east
@@ -306,11 +286,10 @@ fn generate_input(input: &str) -> CartMap {
 fn solve_part_1(input: &CartMap) -> String {
     // Duplicate the cart map
     let mut cart_map = input.duplicate();
-    let mut total_ticks = 0;
     loop {
-        total_ticks += 1;
         // Tick along the carts
         let crash_site = cart_map.tick_along_carts();
+        // Check if a crash has occurred
         match crash_site {
             Some(crash_loc) => {
                 return format!("{},{}", crash_loc.pos_x, crash_loc.pos_y);
@@ -320,4 +299,12 @@ fn solve_part_1(input: &CartMap) -> String {
             }
         }
     }
+}
+
+#[aoc(day13, part2)]
+fn solve_part_2(input: &CartMap) -> String {
+    // Duplicate the cart map
+    let mut cart_map = input.duplicate();
+    
+    unimplemented!();
 }

@@ -2,7 +2,6 @@ use super::utils::map::Direction;
 use super::utils::map::Point2D;
 
 use std::collections::HashMap;
-use std::collections::HashSet;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 enum CartTurnDirection {
@@ -14,7 +13,8 @@ enum CartTurnDirection {
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 enum TrackElement {
     TrackStraight,
-    TrackCorner(Direction, Direction),
+    TrackCornerLeftSlant,
+    TrackCornerRightSlant,
     TrackIntersection,
 }
 
@@ -154,18 +154,10 @@ impl CartMap {
             .collect::<Vec<Point2D>>()
             .to_vec();
         start_points.sort();
-        ////println!(">>>>> START POINT: {:?}", start_points);
-        // Record locations to remove
-        let mut new_crash_sites: HashSet<Point2D> = HashSet::new();
         // Try to move each cart
         for start_point in start_points {
             // Check if the cart is still present in the map (i.e. has not been involved in crash)
-            if !self.crop_carts.contains_key(&start_point) || new_crash_sites.contains(&start_point) {
-                continue;
-            }
-            // Get track element the cart is currently on
-            if self.track_map.get(&start_point) == None {
-                ////println!("BAD TRACK: {},{}", start_point.pos_x, start_point.pos_y);
+            if !self.crop_carts.contains_key(&start_point) {
                 continue;
             }
             let track_element = self.track_map.get(&start_point).unwrap();
@@ -175,34 +167,49 @@ impl CartMap {
                     // Rotate the cart direction
                     self.crop_carts.get_mut(&start_point).unwrap()[0].rotate_next_turn_direction();
                     self.get_shifted_point(start_point)
-                }
-                TrackElement::TrackCorner(dir1, dir2) => {
-                    // We know start point will contain a cart, so we can unwrap straight away
-                    let cart_dir = self.get_cart_direction(start_point).unwrap();
-                    // Check which direction the cart entered the corner from
-                    if cart_dir.is_opposite(*dir1) {
-                        self.crop_carts.get_mut(&start_point).unwrap()[0].direction = *dir2;
-                    } else {
-                        self.crop_carts.get_mut(&start_point).unwrap()[0].direction = *dir1;
+                },
+                TrackElement::TrackCornerLeftSlant => {
+                    match self.crop_carts.get_mut(&start_point).unwrap()[0].direction {
+                        Direction::North => {
+                            self.crop_carts.get_mut(&start_point).unwrap()[0].direction = Direction::West;
+                        },
+                        Direction::South => {
+                            self.crop_carts.get_mut(&start_point).unwrap()[0].direction = Direction::East;
+                        },
+                        Direction::East => {
+                            self.crop_carts.get_mut(&start_point).unwrap()[0].direction = Direction::South;
+                        },
+                        Direction::West => {
+                            self.crop_carts.get_mut(&start_point).unwrap()[0].direction = Direction::North;
+                        }
+                    }
+                    self.get_shifted_point(start_point)
+                },
+                TrackElement::TrackCornerRightSlant => {
+                    match self.crop_carts.get_mut(&start_point).unwrap()[0].direction {
+                        Direction::North => {
+                            self.crop_carts.get_mut(&start_point).unwrap()[0].direction = Direction::East;
+                        },
+                        Direction::South => {
+                            self.crop_carts.get_mut(&start_point).unwrap()[0].direction = Direction::West;
+                        },
+                        Direction::East => {
+                            self.crop_carts.get_mut(&start_point).unwrap()[0].direction = Direction::North;
+                        },
+                        Direction::West => {
+                            self.crop_carts.get_mut(&start_point).unwrap()[0].direction = Direction::South;
+                        }
                     }
                     self.get_shifted_point(start_point)
                 }
             };
-
-            // println!("[{}] Start: [{},{}] --- New: [{},{}] -- Dir: [{:?}] -- Track Elem: [{:?}]",
-            //     self.get_cart_count(), start_point.pos_x, start_point.pos_y, new_point.pos_x, new_point.pos_y,
-            //     self.get_cart_direction(start_point).unwrap(), track_element);
             // Check if new point already has a cart
             if self.crop_carts.contains_key(&new_point) {
-                // Crash has occurred
-                let cart = self.crop_carts.get(&start_point).unwrap()[0];
-                // Remove cart from old location
+                // Remove carts involved in crash
                 self.crop_carts.remove(&start_point);
+                self.crop_carts.remove(&new_point);
                 // Record the new crash site
                 self.add_crash_site(new_point);
-                new_crash_sites.insert(new_point);
-                // Add the cart to the crash site
-                self.crop_carts.get_mut(&new_point).unwrap().push(cart);
                 // Check if we need to halt on first crash
                 if halt_on_crash {
                     return;
@@ -214,10 +221,6 @@ impl CartMap {
                 // Remove cart from old location
                 self.crop_carts.remove(&start_point);
             }
-        }
-        // Remove carts from all new crash
-        for crash_site in new_crash_sites {
-            self.crop_carts.remove(&crash_site);
         }
     }
 }
@@ -241,9 +244,6 @@ fn generate_input(input: &str) -> CartMap {
     let mut crop_carts: HashMap<Point2D, Vec<CropCart>> = HashMap::new();
     for pos_y in 0..map_chars.len() {
         for pos_x in 0..map_chars[pos_y].len() {
-            if pos_x == 85 && pos_y == 144 {
-                println!("MAP CHAR ({},{}) - [{}]", pos_x, pos_y, map_chars[pos_y][pos_x]);
-            }
             let current_loc = Point2D::new(pos_x as i64, pos_y as i64);
             match map_chars[pos_y][pos_x] {
                 ' ' => {
@@ -284,59 +284,11 @@ fn generate_input(input: &str) -> CartMap {
                 }
                 '\\' => {
                     // Left-slant corner
-                    // Check for north & east
-                    let mut done = false;
-                    if pos_y >= 1 && pos_x < (map_chars[pos_y].len() - 1) {
-                        let c_north = map_chars[pos_y - 1][pos_x];
-                        let c_east = map_chars[pos_y][pos_x + 1];
-                        if "|+^v".contains(c_north) && "-+<>".contains(c_east) && !done {
-                            done = true;
-                            track_map.insert(
-                                current_loc,
-                                TrackElement::TrackCorner(Direction::North, Direction::East),
-                            );
-                        }
-                    }
-                    // Check for south & west
-                    if pos_y < (map_chars.len() - 1) && pos_x >= 1 {
-                        let c_south = map_chars[pos_y + 1][pos_x];
-                        let c_west = map_chars[pos_y][pos_x - 1];
-                        if "|+^v".contains(c_south) && "-+<>".contains(c_west) && !done {
-                            done = true;
-                            track_map.insert(
-                                current_loc,
-                                TrackElement::TrackCorner(Direction::South, Direction::West),
-                            );
-                        }
-                    }
+                    track_map.insert(current_loc, TrackElement::TrackCornerLeftSlant);
                 }
                 '/' => {
                     // Right-slant corner
-                    // Check for north & west
-                    let mut done = false;
-                    if pos_y >= 1 && pos_x >= 1 {
-                        let c_north = map_chars[pos_y - 1][pos_x];
-                        let c_west = map_chars[pos_y][pos_x - 1];
-                        if "|+^v".contains(c_north) && "-+<>".contains(c_west) && !done {
-                            done = true;
-                            track_map.insert(
-                                current_loc,
-                                TrackElement::TrackCorner(Direction::North, Direction::West),
-                            );
-                        }
-                    }
-                    // Check for south & east
-                    if pos_y < (map_chars.len() - 1) && pos_x < (map_chars[pos_y].len() - 1) {
-                        let c_south = map_chars[pos_y + 1][pos_x];
-                        let c_east = map_chars[pos_y][pos_x + 1];
-                        if "|+^v".contains(c_south) && "-+<>".contains(c_east) && !done {
-                            done = true;
-                            track_map.insert(
-                                current_loc,
-                                TrackElement::TrackCorner(Direction::South, Direction::East),
-                            );
-                        }
-                    }
+                    track_map.insert(current_loc, TrackElement::TrackCornerRightSlant);
                 }
                 _ => {
                     panic!("Day 13 generator - should not get here!");
@@ -366,20 +318,13 @@ fn solve_part_1(input: &CartMap) -> String {
 fn solve_part_2(input: &CartMap) -> String {
     // Duplicate the cart map
     let mut cart_map = input.duplicate();
-    let mut one_more_tick = false;
     loop {
         // Tick along carts - not halting when crash occurs
         cart_map.tick_along_carts(false);
-        // // println!("{:?}", cart_map.get_cart_locations());
-        // Check if the final tick has been completed
-        if one_more_tick {
-            let final_location = cart_map.get_cart_locations()[0];
-            return format!("{},{}", final_location.pos_x, final_location.pos_y);
-        }
         // Check how many carts are remaining
         if cart_map.get_cart_count() == 1 {
-            println!("GOING TO LAST TICK...");
-            one_more_tick = true;
+            let final_location = cart_map.get_cart_locations()[0];
+            return format!("{},{}", final_location.pos_x, final_location.pos_y);
         }
     }
 }

@@ -1,6 +1,5 @@
 struct RecipeBoard {
     recipes: String,
-    orig_recipe_len: usize,
     elf_one_i: usize,
     elf_two_i: usize,
 }
@@ -12,7 +11,6 @@ impl RecipeBoard {
         }
         Self {
             recipes: String::from(orig_recipe),
-            orig_recipe_len: orig_recipe.len(),
             elf_one_i: 0,
             elf_two_i: 1
         }
@@ -36,7 +34,7 @@ impl RecipeBoard {
         // Calculate the new recipes
         let new_recipes = elf_current_recipes.0 + elf_current_recipes.1;
         // Add new recipes to the board
-        self.recipes += &new_recipes.to_string();
+        self.recipes.extend(new_recipes.to_string().chars()); // += &new_recipes.to_string();
         // Update the current recipe for both elves
         self.update_elf_current_recipes();
     }
@@ -53,23 +51,44 @@ impl RecipeBoard {
         let result = self.recipes.get(recipes_to_left..(recipes_to_left + 10)).unwrap();
         return String::from(result);
     }
+
+    pub fn conduct_turns_until_appearance(&mut self, appearance: &str) -> usize {
+        let mut count: u128 = 0;
+        loop {
+            // Check if the given sequence is at end of recipes list
+            if self.recipes.ends_with(appearance) {
+                return self.recipes.len() - appearance.len();
+            }
+            // Conduct another turn
+            self.conduct_turn();
+
+            count += 1;
+            if (count % 1000000) == 0 {
+                println!("Conducted {} turns ...", count);
+            }
+        }
+    }
 }
 
 #[aoc_generator(day14)]
-fn generate_input(input: &str) -> usize {
-    return input.parse::<usize>().unwrap();
+fn generate_input(input: &str) -> String {
+    return String::from(input);
 }
 
 #[aoc(day14, part1)]
-fn solve_part_1(recipes_to_left: &usize) -> String {
+fn solve_part_1(input: &String) -> String {
     // Create new recipe board
     let mut recipe_board = RecipeBoard::new("37");
     // Conduct turns until at least 10 new recipes have been made
-    let result = recipe_board.conduct_turns_until(*recipes_to_left);
+    let recipes_to_left = input.parse::<usize>().unwrap();
+    let result = recipe_board.conduct_turns_until(recipes_to_left);
     return result;
 }
 
 #[aoc(day14, part2)]
-fn solve_part_2(num_new_recipes: &usize) -> String {
-    unimplemented!();
+fn solve_part_2(input: &String) -> usize {
+    // Create new recipe board
+    let mut recipe_board = RecipeBoard::new("37");
+    let recipes_to_left = recipe_board.conduct_turns_until_appearance(input);
+    return recipes_to_left;
 }

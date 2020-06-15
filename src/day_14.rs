@@ -1,16 +1,18 @@
 struct RecipeBoard {
     recipes: String,
+    num_recipes: usize,
     elf_one_i: usize,
     elf_two_i: usize,
 }
 
 impl RecipeBoard {
     pub fn new(orig_recipe: &str) -> Self {
-        if orig_recipe.len() < 2 {
+        if orig_recipe.chars().count() < 2 {
             panic!("Day14 - initial recipe length is insufficient.");
         }
         Self {
             recipes: String::from(orig_recipe),
+            num_recipes: orig_recipe.chars().count(),
             elf_one_i: 0,
             elf_two_i: 1
         }
@@ -24,8 +26,8 @@ impl RecipeBoard {
 
     fn update_elf_current_recipes(&mut self) {
         let elf_current_recipes = self.get_elf_current_recipes();
-        self.elf_one_i = (self.elf_one_i + elf_current_recipes.0 + 1) % self.recipes.len();
-        self.elf_two_i = (self.elf_two_i + elf_current_recipes.1 + 1) % self.recipes.len();
+        self.elf_one_i = (self.elf_one_i + elf_current_recipes.0 + 1) % self.num_recipes;
+        self.elf_two_i = (self.elf_two_i + elf_current_recipes.1 + 1) % self.num_recipes;
     }
 
     pub fn conduct_turn(&mut self) {
@@ -35,6 +37,8 @@ impl RecipeBoard {
         let new_recipes = elf_current_recipes.0 + elf_current_recipes.1;
         // Add new recipes to the board
         self.recipes.extend(new_recipes.to_string().chars()); // += &new_recipes.to_string();
+        // println!("!!! {} / 10 + 1 = {}", new_recipes, (new_recipes / 10) + 1);
+        self.num_recipes += (new_recipes / 10) + 1;
         // Update the current recipe for both elves
         self.update_elf_current_recipes();
     }
@@ -42,7 +46,7 @@ impl RecipeBoard {
     pub fn conduct_turns_until(&mut self, recipes_to_left: usize) -> String {
         loop {
             // Check if we have generated enough new recipes
-            if self.recipes.len() >= (recipes_to_left + 10) {
+            if self.num_recipes >= (recipes_to_left + 10) {
                 break;
             }
             // Conduct a new turn to generate new recipes
@@ -57,7 +61,7 @@ impl RecipeBoard {
         loop {
             // Check if the given sequence is at end of recipes list
             if self.recipes.ends_with(appearance) {
-                return self.recipes.len() - appearance.len();
+                return self.num_recipes - appearance.chars().count();
             }
             // Conduct another turn
             self.conduct_turn();

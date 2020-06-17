@@ -26,12 +26,12 @@ impl CombatUnit {
     }
 
     pub fn deal_damage(&mut self, damage: u64) -> bool {
-        println!("[{:?}] attacked", self);
+        //println!("[{:?}] attacked", self);
         // Work out damage to be dealt
         let damage_to_deal = std::cmp::min(damage, self.hit_points);
         // Deal the damage
         self.hit_points -= damage_to_deal;
-        println!("[{:?}] HP remaining", self.hit_points);
+        //println!("[{:?}] HP remaining", self.hit_points);
         return self.is_alive();
     }
 
@@ -166,93 +166,36 @@ impl CombatMap {
         }
     }
 
-    pub fn determine_shortest_path(&self, start_point: Point2D, end_point: Point2D) -> Vec<Point2D> {
-        // Get surrounding points
-        let surr_points = self.get_surrounding_points_space(start_point);
-
-        let mut paths = Vec::<Vec<Point2D>>::new();
-        for check_point in surr_points {
-            if let Some(path) = self.determine_shortest_path_recurse(check_point, end_point, vec![start_point]) {
-                println!("##### Path: {:?}", path);
-                paths.push(path);
-            }
-        }
-
-        // Determine which of the paths is shortest
-        let mut min_path = Vec::<Point2D>::new();
-        let mut min_length = usize::MAX;
-        for path in paths {
-            if path.len() < min_length {
-                min_length = path.len();
-                min_path = path;
-            }
-        }
-        return min_path;
-    }
-
-    fn determine_shortest_path_recurse(&self, start_point: Point2D, end_point: Point2D, path: Vec<Point2D>) -> Option<Vec<Point2D>> {
-        // if path.len() >= 2 && path[0] == Point2D::new(10, 3) && path[1] == Point2D::new(10,4){
-        //     println!("######## Current path -----> {:?}", path);
-        // }
-        if path.len() == 1 {
-            println!("######## Current path -----> {:?}", path);
-        }
-
-        let mut new_path = path.clone();
-        new_path.push(start_point);
-        // println!("######## New path -----> {:?}", new_path);
-        // std::thread::sleep(std::time::Duration::from_millis(500));
-
-        if start_point == end_point {
-            return Some(path);
-        }
-
-        // Get surrounding points for current point
-        let surr_points = self.get_surrounding_points_space(start_point);
-        let mut check_points = Vec::<Point2D>::new();
-        // Check if surrounding points are not wall, another unit or last location of path
-        for surr_point in surr_points {
-            if *self.map.get(&surr_point).unwrap() != MapTileType::Wall
-                && !self.unit_locations.contains_key(&surr_point)
-                && !new_path.contains(&surr_point)
-            {
-                check_points.push(surr_point);
-                // println!("######## >>> Check point: {:?}", surr_point);
-            }
-        }
-        let mut paths = Vec::<Vec<Point2D>>::new();
-        for check_point in check_points {
-            if let Some(path) = self.determine_shortest_path_recurse(check_point, end_point, new_path.clone()) {
-                paths.push(path);
-            }
-        }
-
-        let mut min_path: Option<Vec<Point2D>> = None;
-        let mut min_len = usize::MAX;
-        for path in paths {
-            if path.len() < min_len {
-                min_len = path.len();
-                min_path = Some(path);
-            }
-        }
-        // if min_path.is_none() {
-        //     println!("!!! DEAD-END PATH");
-        // }
-        return min_path;
-        // We have reached a dead-end path
-        // println!("!!! DEAD-END PATH");
-    }
-
-    pub fn get_distance_of_min_path(&self, start_point: Point2D, end_point: Point2D) -> Vec<(Point2D, usize)> {
-        // Get surrounding points
-        let surr_points = self.get_surrounding_points_space(start_point);
-
+    pub fn get_min_path_dists_bleed(&self, unit_loc: Point2D, reach_loc: Point2D) -> Vec<(Point2D, usize)> {
+        // Get surrounding points that are empty (space without occupying unit)
+        let unit_surr_points = self.get_surrounding_points_space(unit_loc);
+        // Initialise HashMap to hold bleed dists
+        let mut bleed_dists = HashMap::<Point2D, usize>::new();
+        // Do the bleed, starting from the reachable tile
+        self.do_min_path_bleed_recurse(unit_loc, reach_loc, &mut bleed_dists, 0);
+        // Get the distances for the surrounding points
         let mut output = Vec::<(Point2D, usize)>::new();
-        for surr_point in surr_points {
-            let shortest_path = self.determine_shortest_path(surr_point, end_point);
-            output.push((surr_point, shortest_path.len()));
+        for unit_surr_point in unit_surr_points {
+            if !bleed_dists.contains_key(&unit_surr_point) {
+                output.push((unit_surr_point, usize::MAX));
+            } else {
+                let dist = *bleed_dists.get(&unit_surr_point).unwrap();
+                output.push((unit_surr_point, dist));
+            }
         }
         return output;
+    }
+
+    pub fn do_min_path_bleed_recurse(&self, unit_loc: Point2D, curr_bleed_point: Point2D, bleed_dists: &mut HashMap<Point2D, usize>, depth: usize) {
+        // Add current bleed point
+        bleed_dists.insert(curr_bleed_point, depth);
+        // Get all points around current bleed point
+        let bleed_surr_points = self.get_surrounding_points_space(curr_bleed_point);
+        for point in bleed_surr_points {
+            if !bleed_dists.contains_key(&point) {
+                self.do_min_path_bleed_recurse(unit_loc, point, bleed_dists, depth + 1);
+            }
+        }
     }
 
     pub fn calculate_outcome(&self) -> u64 {
@@ -287,15 +230,14 @@ impl CombatMap {
         let turn_order = self.get_turn_order();
         // println!(">>>> Turn-order: {:?}", turn_order);
         // For each combat unit stil alive:
-        for curr_loc in turn_order {
-            std::thread::sleep(std::time::Duration::from_millis(10));
+        for unit_loc in turn_order {
             // Check if unit is still alive
-            if self.unit_locations.get(&curr_loc).is_none() {
+            if self.unit_locations.get(&unit_loc).is_none() {
                 continue;
             }
             // Get the current unit
-            let curr_unit = self.unit_locations.get(&curr_loc).unwrap().clone();
-            println!(">>>> [{}, {}] Current unit: {:?}", curr_loc.pos_x, curr_loc.pos_y, curr_unit);
+            let curr_unit = self.unit_locations.get(&unit_loc).unwrap().clone();
+            println!(">>>> [{}, {}] Current unit: {:?}", unit_loc.pos_x, unit_loc.pos_y, curr_unit);
             println!(">>>>>>>> Enemies left: {}", self.count_enemies(curr_unit.get_variant()));
             // Check how many enemies are left
             if self.count_enemies(curr_unit.get_variant()) == 0 {
@@ -305,7 +247,7 @@ impl CombatMap {
 
             // // If already in-range of enemy unit, attack and finish unit's turn
             let mut already_attacked = false;
-            let surr_points = curr_loc.get_surrounding_points();
+            let surr_points = unit_loc.get_surrounding_points();
             for point in surr_points {
                 if let Some(unit) = self.unit_locations.get_mut(&point) {
                     if unit.get_variant() != curr_unit.get_variant() {
@@ -347,7 +289,7 @@ impl CombatMap {
                 if reachable_tiles.contains(&in_range_tile) {
                     continue;
                 }
-                if self.check_reachability(curr_loc, in_range_tile) {
+                if self.check_reachability(unit_loc, in_range_tile) {
                     reachable_tiles.insert(in_range_tile);
                 }
             }
@@ -355,16 +297,16 @@ impl CombatMap {
 
             // // Determine which reachable in-range squares are closest
             let mut surr_point_min_dists = HashMap::<Point2D, usize>::new();
-            let surr_points = &self.get_surrounding_points_space(curr_loc);
+            let surr_points = &self.get_surrounding_points_space(unit_loc);
             for surr_point in surr_points {
                 surr_point_min_dists.insert(*surr_point, usize::MAX);
             }
-            println!(">>>> Dists: {:?}", surr_point_min_dists);
+            //println!(">>>> Dists: {:?}", surr_point_min_dists);
 
             // // Determine shortest-path to selected in-range square
             for reachable_tile in reachable_tiles {
                 // Get distance to tile from all spaces around current location
-                let dists = self.get_distance_of_min_path(curr_loc, reachable_tile);
+                let dists = self.get_min_path_dists_bleed(unit_loc, reachable_tile);
                 // Update the shortest distance to target for each surrounding space
                 for (loc, dist) in dists {
                     if dist < *surr_point_min_dists.get(&loc).unwrap() {
@@ -372,7 +314,7 @@ impl CombatMap {
                     }
                 }
             }
-            println!(">>>> Dists: {:?}", surr_point_min_dists);
+            //println!(">>>> Dists: {:?}", surr_point_min_dists);
 
             let mut min_dist_points = Vec::<Point2D>::new();
             let mut min_dist = usize::MAX;
@@ -385,14 +327,18 @@ impl CombatMap {
                 }
             }
             min_dist_points.sort_by(|a, b| a.cmp(b));
-            let new_loc = min_dist_points[0];
-
-            // // Update location of unit
-            self.unit_locations.remove(&curr_loc);
-            self.unit_locations.insert(new_loc, curr_unit);
+            
+            // Only move if there are options
+            let mut unit_updated_position = unit_loc;
+            if min_dist_points.len() >= 1 {
+                let new_loc = min_dist_points[0];
+                unit_updated_position = new_loc;
+                self.unit_locations.remove(&unit_loc);
+                self.unit_locations.insert(new_loc, curr_unit);
+            }
 
             // // If unit now in range of enemy, attack and finish unit's turn
-            let surr_points = new_loc.get_surrounding_points();
+            let surr_points = unit_updated_position.get_surrounding_points();
             for point in surr_points {
                 if let Some(unit) = self.unit_locations.get_mut(&point) {
                     // Only attack enemy units!

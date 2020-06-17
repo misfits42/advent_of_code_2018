@@ -31,6 +31,30 @@ impl Point2D {
         let y_diff = (self.pos_y - other.pos_y).abs();
         return (x_diff + y_diff) as u64;
     }
+
+    /// Calculates the four points surrounding the current point.
+    /// 
+    /// Returned value is sorted by reading order ()
+    pub fn get_surrounding_points(&self) -> Vec<Point2D> {
+        let mut output = Vec::<Point2D>::new();
+        // Update pos_x - checking for integer overflow boundaries
+        if self.pos_x < i64::MAX {
+            output.push(Point2D::new(self.pos_x + 1, self.pos_y));
+        }
+        if self.pos_x > i64::MIN {
+            output.push(Point2D::new(self.pos_x - 1, self.pos_y));
+        }
+        // Update pos_y - checking for integer overflow boundaries
+        if self.pos_y < i64::MAX {
+            output.push(Point2D::new(self.pos_x, self.pos_y + 1));
+        }
+        if self.pos_y > i64::MIN {
+            output.push(Point2D::new(self.pos_x, self.pos_y - 1));
+        }
+        // Sort output by reading order
+        output.sort_by(|a, b| a.cmp(b));
+        return output;
+    }
 }
 
 impl fmt::Display for Point2D {
@@ -41,12 +65,12 @@ impl fmt::Display for Point2D {
 
 impl Ord for Point2D {
     fn cmp(&self, other: &Self) -> Ordering {
-        if self.pos_x < other.pos_x {
+        if self.pos_y < other.pos_y {
             return Ordering::Less;
-        } else if self.pos_x == other.pos_x {
-            if self.pos_y < other.pos_y {
+        } else if self.pos_y == other.pos_y {
+            if self.pos_x < other.pos_x {
                 return Ordering::Less;
-            } else if self.pos_y == other.pos_y {
+            } else if self.pos_x == other.pos_x {
                 return Ordering::Equal;
             } else {
                 return Ordering::Greater;

@@ -270,8 +270,8 @@ impl CombatMap {
         // If more than one unit with same min HP, break tie with reading order
         min_hp_targets.sort_by(|a, b| a.cmp(b));
         let target_loc = min_hp_targets[0];
-        let mut attack_unit_pow = self.unit_locations.get(&attacker_loc).unwrap().get_attack_power();
-        let mut target = self.unit_locations.get_mut(&target_loc).unwrap();
+        let attack_unit_pow = self.unit_locations.get(&attacker_loc).unwrap().get_attack_power();
+        let target = self.unit_locations.get_mut(&target_loc).unwrap();
 
         let still_alive = target.deal_damage(attack_unit_pow);
         // If target is no longer alive, remove it from the combat map
@@ -322,27 +322,9 @@ impl CombatMap {
                 println!("START - conducting attack");
             }
             if already_attacked {
+                println!("already attacked, continuing...");
                 continue;
             }
-
-            // let surr_points = unit_loc.get_surrounding_points();
-            // for point in surr_points {
-            //     if let Some(unit) = self.unit_locations.get_mut(&point) {
-            //         if unit.get_variant() != curr_unit.get_variant() {
-            //             let still_alive = unit.deal_damage(curr_unit.get_attack_power());
-            //             // If target is no longer alive, remove it from the combat map
-            //             if !still_alive {
-            //                 println!("$$$$$$$$ Unit removed (1): {:?}", point);
-            //                 self.unit_locations.remove(&point);
-            //             }
-            //             already_attacked = true;
-            //             break;
-            //         }
-            //     }
-            // }
-            // if already_attacked {
-            //     continue;
-            // }
 
             // // Determine what squares are in range of enemy units
             let mut in_range_tiles = Vec::<Point2D>::new();
@@ -412,24 +394,11 @@ impl CombatMap {
                 let new_loc = min_dist_points[0];
                 self.unit_locations.remove(&unit_loc);
                 self.unit_locations.insert(new_loc, curr_unit);
+                if self.check_if_enemy_is_adjacent(new_loc, curr_unit.get_variant()) {
+                    println!("END - conducting attack");
+                    self.conduct_attack(new_loc, curr_unit.get_variant());
+                }
             }
-
-            // // If unit now in range of enemy, attack and finish unit's turn
-            // let surr_points = unit_updated_position.get_surrounding_points();
-            // for point in surr_points {
-            //     if let Some(unit) = self.unit_locations.get_mut(&point) {
-            //         // Only attack enemy units!
-            //         if unit.get_variant() != curr_unit.get_variant() {
-            //             let still_alive = unit.deal_damage(curr_unit.get_attack_power());
-            //             // If target is no longer alive, remove it from the combat map
-            //             if !still_alive {
-            //                 println!("$$$$$$$$ Unit removed (2): {:?}", point);
-            //                 self.unit_locations.remove(&point);
-            //             }
-            //         }
-            //         break;
-            //     }
-            // }
 
             if self.check_if_enemy_is_adjacent(unit_loc, curr_unit.get_variant()) {
                 println!("END - conducting attack");

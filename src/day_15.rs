@@ -2,6 +2,7 @@ use super::utils::map::Point2D;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::VecDeque;
 
 #[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
 enum UnitVariant {
@@ -45,6 +46,10 @@ impl CombatUnit {
 
     pub fn get_variant(&self) -> UnitVariant {
         return self.variant;
+    }
+
+    pub fn get_hit_points(&self) -> u64 {
+        return self.hit_points;
     }
 }
 
@@ -166,36 +171,39 @@ impl CombatMap {
         }
     }
 
-    pub fn get_min_path_dists_bleed(&self, unit_loc: Point2D, reach_loc: Point2D) -> Vec<(Point2D, usize)> {
-        // Get surrounding points that are empty (space without occupying unit)
-        let unit_surr_points = self.get_surrounding_points_space(unit_loc);
-        // Initialise HashMap to hold bleed dists
-        let mut bleed_dists = HashMap::<Point2D, usize>::new();
-        // Do the bleed, starting from the reachable tile
-        self.do_min_path_bleed_recurse(unit_loc, reach_loc, &mut bleed_dists, 0);
-        // Get the distances for the surrounding points
+    pub fn gen_min_path_dists_bfs(&self, unit_loc: Point2D, reach_loc: Point2D) -> Vec<(Point2D, usize)> {
+        // Initialise queue to hold nodes to be visited
+        let mut node_queue = VecDeque::<(Point2D, usize)>::new();
+        let mut visited = HashMap::<Point2D, usize>::new();
+        // Add starting node to the queue
+        node_queue.push_back((reach_loc, 0));
+        loop {
+            // Stop if there are no more nodes to visit
+            if node_queue.is_empty() {
+                break;
+            }
+            // Visit the next node in queue
+            let (node, depth) = node_queue.pop_front().unwrap();
+            visited.insert(node, depth);
+            // Add all unvisited neighbours to queue
+            let neighbours = self.get_surrounding_points_space(node);
+            let nodes = node_queue.iter().map(|x| x.0).collect::<HashSet<Point2D>>();
+            for neigh in neighbours {
+                if !visited.contains_key(&neigh) && !nodes.contains(&neigh) {
+                    node_queue.push_back((neigh, depth + 1));
+                }
+            }
+        }
+        // Get out only the points around the unit
         let mut output = Vec::<(Point2D, usize)>::new();
-        for unit_surr_point in unit_surr_points {
-            if !bleed_dists.contains_key(&unit_surr_point) {
-                output.push((unit_surr_point, usize::MAX));
-            } else {
-                let dist = *bleed_dists.get(&unit_surr_point).unwrap();
-                output.push((unit_surr_point, dist));
+        let unit_surr_points = self.get_surrounding_points_space(unit_loc);
+        for point in unit_surr_points {
+            if visited.contains_key(&point) {
+                let dist = *visited.get(&point).unwrap();
+                output.push((point, dist));
             }
         }
         return output;
-    }
-
-    pub fn do_min_path_bleed_recurse(&self, unit_loc: Point2D, curr_bleed_point: Point2D, bleed_dists: &mut HashMap<Point2D, usize>, depth: usize) {
-        // Add current bleed point
-        bleed_dists.insert(curr_bleed_point, depth);
-        // Get all points around current bleed point
-        let bleed_surr_points = self.get_surrounding_points_space(curr_bleed_point);
-        for point in bleed_surr_points {
-            if !bleed_dists.contains_key(&point) {
-                self.do_min_path_bleed_recurse(unit_loc, point, bleed_dists, depth + 1);
-            }
-        }
     }
 
     pub fn calculate_outcome(&self) -> u64 {
@@ -224,12 +232,66 @@ impl CombatMap {
         return count;
     }
 
+    fn check_if_enemy_is_adjacent(&self, unit_loc: Point2D, friendly: UnitVariant) -> bool {
+        // Get all points around current unit location
+        let surr_points = unit_loc.get_surrounding_points();
+        // Check if any surrounding points contain an enemy unit
+        for point in surr_points {
+            if let Some(unit) = self.unit_locations.get(&point) {
+                if unit.get_variant() != friendly {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    fn conduct_attack(&mut self, attacker_loc: Point2D, friendly: UnitVariant) {
+        // Get all points around attacker loc
+        let surr_points = attacker_loc.get_surrounding_points();
+        let mut min_hp: Option<u64> = None;
+        let mut min_hp_targets = Vec::<Point2D>::new();
+        // Check surrounding points for enemies
+        for point in surr_points {
+            if let Some(target_unit) = self.unit_locations.get(&point) {
+                if target_unit.get_variant() != friendly {
+                    if min_hp.is_none() {
+                        min_hp = Some(target_unit.get_hit_points());
+                        min_hp_targets = vec![point];
+                    } else if target_unit.get_hit_points() == min_hp.unwrap() {
+                        min_hp_targets.push(point);
+                    } else if target_unit.get_hit_points() < min_hp.unwrap() {
+                        min_hp = Some(target_unit.get_hit_points());
+                        min_hp_targets = vec![point];
+                    }
+                }
+            }
+        }
+        // If more than one unit with same min HP, break tie with reading order
+        min_hp_targets.sort_by(|a, b| a.cmp(b));
+        let target_loc = min_hp_targets[0];
+        let mut attack_unit_pow = self.unit_locations.get(&attacker_loc).unwrap().get_attack_power();
+        let mut target = self.unit_locations.get_mut(&target_loc).unwrap();
+
+        let still_alive = target.deal_damage(attack_unit_pow);
+        // If target is no longer alive, remove it from the combat map
+        if !still_alive {
+            println!("$$$$$$$$ Unit removed (1): {:?}", target_loc);
+            self.unit_locations.remove(&target_loc);
+        }
+    }
+
     pub fn conduct_turn(&mut self) {
+        println!("");
+        println!("##################################################");
+        println!("");
+
         println!("Starting turn {} ...", self.full_rounds_compl + 1);
         // Determine move order at start of turn
         let turn_order = self.get_turn_order();
         // println!(">>>> Turn-order: {:?}", turn_order);
         // For each combat unit stil alive:
+        // std::thread::sleep(std::time::Duration::from_millis(2000));
         for unit_loc in turn_order {
             // Check if unit is still alive
             if self.unit_locations.get(&unit_loc).is_none() {
@@ -241,30 +303,46 @@ impl CombatMap {
             println!(">>>>>>>> Enemies left: {}", self.count_enemies(curr_unit.get_variant()));
             // Check how many enemies are left
             if self.count_enemies(curr_unit.get_variant()) == 0 {
+                println!("COMBAT FINISHED!!!");
+                for (loc, unit) in self.unit_locations.iter() {
+                    println!(">>>> [{}, {}] Current unit: {:?}", loc.pos_x, loc.pos_y, unit);
+                    println!(">>>>>>>> Enemies left: {}", self.count_enemies(unit.get_variant()));
+                }
+
                 self.combat_finished = true;
                 return;
             }
 
             // // If already in-range of enemy unit, attack and finish unit's turn
             let mut already_attacked = false;
-            let surr_points = unit_loc.get_surrounding_points();
-            for point in surr_points {
-                if let Some(unit) = self.unit_locations.get_mut(&point) {
-                    if unit.get_variant() != curr_unit.get_variant() {
-                        let still_alive = unit.deal_damage(curr_unit.get_attack_power());
-                        // If target is no longer alive, remove it from the combat map
-                        if !still_alive {
-                            println!("$$$$$$$$ Unit removed (1): {:?}", point);
-                            self.unit_locations.remove(&point);
-                        }
-                        already_attacked = true;
-                        break;
-                    }
-                }
+            if self.check_if_enemy_is_adjacent(unit_loc, curr_unit.get_variant()) {
+                already_attacked = true;
+                // conduct attack
+                self.conduct_attack(unit_loc, curr_unit.get_variant());
+                println!("START - conducting attack");
             }
             if already_attacked {
                 continue;
             }
+
+            // let surr_points = unit_loc.get_surrounding_points();
+            // for point in surr_points {
+            //     if let Some(unit) = self.unit_locations.get_mut(&point) {
+            //         if unit.get_variant() != curr_unit.get_variant() {
+            //             let still_alive = unit.deal_damage(curr_unit.get_attack_power());
+            //             // If target is no longer alive, remove it from the combat map
+            //             if !still_alive {
+            //                 println!("$$$$$$$$ Unit removed (1): {:?}", point);
+            //                 self.unit_locations.remove(&point);
+            //             }
+            //             already_attacked = true;
+            //             break;
+            //         }
+            //     }
+            // }
+            // if already_attacked {
+            //     continue;
+            // }
 
             // // Determine what squares are in range of enemy units
             let mut in_range_tiles = Vec::<Point2D>::new();
@@ -293,7 +371,7 @@ impl CombatMap {
                     reachable_tiles.insert(in_range_tile);
                 }
             }
-            // println!(">>>> Reachable tiles: {:?}", reachable_tiles);
+            ////println!(">>>> Reachable tiles: {:?}", reachable_tiles);
 
             // // Determine which reachable in-range squares are closest
             let mut surr_point_min_dists = HashMap::<Point2D, usize>::new();
@@ -301,20 +379,21 @@ impl CombatMap {
             for surr_point in surr_points {
                 surr_point_min_dists.insert(*surr_point, usize::MAX);
             }
-            //println!(">>>> Dists: {:?}", surr_point_min_dists);
+            ////println!(">>>> Dists: {:?}", surr_point_min_dists);
 
             // // Determine shortest-path to selected in-range square
             for reachable_tile in reachable_tiles {
                 // Get distance to tile from all spaces around current location
-                let dists = self.get_min_path_dists_bleed(unit_loc, reachable_tile);
+                let dists = self.gen_min_path_dists_bfs(unit_loc, reachable_tile);
+                ////println!("{:?} dist: {:?}", reachable_tile, dists);
                 // Update the shortest distance to target for each surrounding space
                 for (loc, dist) in dists {
-                    if dist < *surr_point_min_dists.get(&loc).unwrap() {
+                    if surr_point_min_dists.contains_key(&loc) && dist < *surr_point_min_dists.get(&loc).unwrap() {
                         surr_point_min_dists.insert(loc, dist);
                     }
                 }
             }
-            //println!(">>>> Dists: {:?}", surr_point_min_dists);
+            ////println!(">>>> Dists: {:?}", surr_point_min_dists);
 
             let mut min_dist_points = Vec::<Point2D>::new();
             let mut min_dist = usize::MAX;
@@ -322,37 +401,48 @@ impl CombatMap {
                 if *dist < min_dist {
                     min_dist = *dist;
                     min_dist_points = vec![*loc];
-                } else if *dist == min_dist {
+                } else if *dist < usize::MAX && *dist == min_dist {
                     min_dist_points.push(*loc);
                 }
             }
             min_dist_points.sort_by(|a, b| a.cmp(b));
             
             // Only move if there are options
-            let mut unit_updated_position = unit_loc;
             if min_dist_points.len() >= 1 {
                 let new_loc = min_dist_points[0];
-                unit_updated_position = new_loc;
                 self.unit_locations.remove(&unit_loc);
                 self.unit_locations.insert(new_loc, curr_unit);
             }
 
             // // If unit now in range of enemy, attack and finish unit's turn
-            let surr_points = unit_updated_position.get_surrounding_points();
-            for point in surr_points {
-                if let Some(unit) = self.unit_locations.get_mut(&point) {
-                    // Only attack enemy units!
-                    if unit.get_variant() != curr_unit.get_variant() {
-                        let still_alive = unit.deal_damage(curr_unit.get_attack_power());
-                        // If target is no longer alive, remove it from the combat map
-                        if !still_alive {
-                            println!("$$$$$$$$ Unit removed (2): {:?}", point);
-                            self.unit_locations.remove(&point);
-                        }
-                    }
-                    break;
-                }
+            // let surr_points = unit_updated_position.get_surrounding_points();
+            // for point in surr_points {
+            //     if let Some(unit) = self.unit_locations.get_mut(&point) {
+            //         // Only attack enemy units!
+            //         if unit.get_variant() != curr_unit.get_variant() {
+            //             let still_alive = unit.deal_damage(curr_unit.get_attack_power());
+            //             // If target is no longer alive, remove it from the combat map
+            //             if !still_alive {
+            //                 println!("$$$$$$$$ Unit removed (2): {:?}", point);
+            //                 self.unit_locations.remove(&point);
+            //             }
+            //         }
+            //         break;
+            //     }
+            // }
+
+            if self.check_if_enemy_is_adjacent(unit_loc, curr_unit.get_variant()) {
+                println!("END - conducting attack");
+                self.conduct_attack(unit_loc, curr_unit.get_variant());
             }
+        }
+
+        println!("");
+        println!("END OF TURN");
+        println!("");
+        for (loc, unit) in self.unit_locations.iter() {
+            println!(">>>> [{}, {}] Current unit: {:?}", loc.pos_x, loc.pos_y, unit);
+            println!(">>>>>>>> Enemies left: {}", self.count_enemies(unit.get_variant()));
         }
 
         // Full round now completed, so increment count
@@ -375,6 +465,7 @@ fn generate_input(input: &str) -> CombatMap {
 fn solve_part_1(input: &CombatMap) -> u64 {
     let mut combat_map = input.duplicate();
     println!("Starting combat!");
+
     loop {
         combat_map.conduct_turn();
         if combat_map.is_combat_finished() {

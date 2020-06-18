@@ -34,7 +34,7 @@ impl Point2D {
 
     /// Calculates the four points surrounding the current point.
     /// 
-    /// Returned value is sorted by reading order ()
+    /// Returned value is sorted by reading order.
     pub fn get_surrounding_points(&self) -> Vec<Point2D> {
         let mut output = Vec::<Point2D>::new();
         // Update pos_x - checking for integer overflow boundaries

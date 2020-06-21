@@ -58,6 +58,11 @@ impl CombatUnit {
     pub fn get_hit_points(&self) -> u64 {
         return self.hit_points;
     }
+
+    /// Updates the attack power of the CombatUnit.
+    pub fn update_attack_power(&mut self, power: u64) {
+        self.attack_power = power;
+    }
 }
 
 //
@@ -126,6 +131,24 @@ impl CombatMap {
             map: map,
             full_rounds_compl: 0,
             combat_finished: false,
+        }
+    }
+
+    pub fn count_num_units(&self, variant: UnitVariant) -> usize {
+        let mut count = 0;
+        for (_, unit) in self.unit_locations.iter() {
+            if unit.get_variant() == variant {
+                count += 1;
+            }
+        }
+        return count;
+    }
+
+    pub fn update_unit_powers(&mut self, variant: UnitVariant, new_power: u64) {
+        for (_, unit) in self.unit_locations.iter_mut() {
+            if unit.get_variant() == variant {
+                unit.update_attack_power(new_power);
+            }
         }
     }
 
@@ -387,6 +410,15 @@ impl CombatMap {
     pub fn is_combat_finished(&self) -> bool {
         return self.combat_finished;
     }
+
+    pub fn conduct_combat_until_finished(&mut self) {
+        loop {
+            self.conduct_turn();
+            if self.is_combat_finished() {
+                return;
+            }
+        }
+    }
 }
 
 //
@@ -410,9 +442,45 @@ fn solve_part_1(input: &CombatMap) -> u64 {
 
 #[aoc(day15, part2)]
 fn solve_part_2(input: &CombatMap) -> u64 {
-    let mut _combat_map = input.duplicate();
-
-    unimplemented!();
+    let mut elf_power: u64 = 3;
+    let num_start_elves = input.count_num_units(UnitVariant::Elf);
+    // Keep track of last powers providing elf loss and no loss
+    let mut lower_power: u64 = 3;
+    let mut upper_power: u64 = u64::MAX;
+    let mut last_no_loss_outcome: u64 = 0;
+    loop {
+        // Make new copy of combat map
+        let mut combat_map = input.duplicate();
+        // Update elf power
+        combat_map.update_unit_powers(UnitVariant::Elf, elf_power);
+        // Conduct combat until finished
+        combat_map.conduct_combat_until_finished();
+        // Check if any elves were lost - using binary-search to update elf power
+        if combat_map.count_num_units(UnitVariant::Elf) == num_start_elves {
+            // Update upper power and record last outcome of no-loss combat
+            upper_power = elf_power;
+            last_no_loss_outcome = combat_map.calculate_outcome();
+            // Check if we have found the lowest elf power causing no elf losses
+            if upper_power - 1 == lower_power {
+                return last_no_loss_outcome;
+            }
+            // Move elf power to halfway between lower and upper limits
+            elf_power = lower_power + (upper_power - lower_power) / 2;
+        } else {
+            // Move the lower limit up
+            lower_power = elf_power;
+            // Check if we have found the lowest elf power causing no elf losses
+            if upper_power - 1 == lower_power {
+                return last_no_loss_outcome;
+            }
+            // Double elf power if no upper limit yet, otherwise increase half towards max power
+            if upper_power < u64::MAX {
+                elf_power = lower_power + (upper_power - lower_power) / 2;
+            } else {
+                elf_power *= 2;
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -424,6 +492,13 @@ mod tests {
         let input = generate_input(&std::fs::read_to_string("./input/2018/day15.txt").unwrap());
         let result = solve_part_1(&input);
         assert_eq!(result, 346574);
+    }
+
+    #[test]
+    fn test_d15_p2_proper() {
+        let input = generate_input(&std::fs::read_to_string("./input/2018/day15.txt").unwrap());
+        let result = solve_part_1(&input);
+        assert_eq!(result, 60864);
     }
 
     #[test]

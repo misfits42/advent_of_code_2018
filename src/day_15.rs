@@ -256,14 +256,19 @@ impl CombatMap {
         let mut min_hp_targets = Vec::<Point2D>::new();
         // Check surrounding points for enemies
         for point in surr_points {
+            // Check if point adjacent to attacking unit contains a unit
             if let Some(target_unit) = self.unit_locations.get(&point) {
+                // Check if the unit is an enemy
                 if target_unit.get_variant() != friendly {
                     if min_hp.is_none() {
+                        // First enemy seen, so set the min HP seen
                         min_hp = Some(target_unit.get_hit_points());
                         min_hp_targets = vec![point];
                     } else if target_unit.get_hit_points() == min_hp.unwrap() {
+                        // Min HP matches current level, so add target to list
                         min_hp_targets.push(point);
                     } else if target_unit.get_hit_points() < min_hp.unwrap() {
+                        // New min HP found, so reinitialise possible targets with current point
                         min_hp = Some(target_unit.get_hit_points());
                         min_hp_targets = vec![point];
                     }
@@ -275,22 +280,15 @@ impl CombatMap {
         let target_loc = min_hp_targets[0];
         let attack_unit_pow = self.unit_locations.get(&attacker_loc).unwrap().get_attack_power();
         let target = self.unit_locations.get_mut(&target_loc).unwrap();
-
+        // Deal damage to target unit, then check if it is still alive
         let still_alive = target.deal_damage(attack_unit_pow);
-        // If target is no longer alive, remove it from the combat map
         if !still_alive {
-            println!("$$$$$$$$ Unit removed (1): {:?}", target_loc);
             self.unit_locations.remove(&target_loc);
         }
     }
 
     /// Conducts a single turn of combat.
     pub fn conduct_turn(&mut self) {
-        println!("");
-        println!("##################################################");
-        println!("");
-
-        println!("Starting turn {} ...", self.full_rounds_compl + 1);
         // Determine move order at start of turn
         let turn_order = self.get_turn_order();
         for unit_loc in turn_order {
@@ -298,35 +296,22 @@ impl CombatMap {
             if self.unit_locations.get(&unit_loc).is_none() {
                 continue;
             }
-
             // Get the current unit
             let curr_unit = self.unit_locations.get(&unit_loc).unwrap().clone();
-            println!(">>>> [{}, {}] Current unit: {:?}", unit_loc.pos_x, unit_loc.pos_y, curr_unit);
-            println!(">>>>>>>> Enemies left: {}", self.count_enemies(curr_unit.get_variant()));
-
             // Check if all enemies have been eliminated
             if self.count_enemies(curr_unit.get_variant()) == 0 {
-
-                println!("COMBAT FINISHED!!!");
-                for (loc, unit) in self.unit_locations.iter() {
-                    println!(">>>> [{}, {}] Current unit: {:?}", loc.pos_x, loc.pos_y, unit);
-                    println!(">>>>>>>> Enemies left: {}", self.count_enemies(unit.get_variant()));
-                }
-
                 self.combat_finished = true;
                 return;
             }
 
             // // If already in-range of enemy unit, attack and finish unit's turn
             if self.check_if_enemy_is_adjacent(unit_loc, curr_unit.get_variant()) {
-                // conduct attack
                 self.conduct_attack(unit_loc, curr_unit.get_variant());
-                println!("START - conducting attack");
                 continue;
             }
 
             // // Determine what squares are in range of enemy units
-            let mut in_range_tiles = Vec::<Point2D>::new();
+            let mut in_range_tiles = HashSet::<Point2D>::new();
             for (unit_loc, unit) in self.unit_locations.iter() {
                 if unit.get_variant() != curr_unit.get_variant() {
                     in_range_tiles.extend(self.get_surrounding_points_space(*unit_loc).iter());
@@ -334,66 +319,65 @@ impl CombatMap {
             }
 
             // // Determine what square in range are reachable
-            let mut reachable_tiles = HashSet::<Point2D>::new();
+            let mut reachable_locs = HashSet::<Point2D>::new();
             for in_range_tile in in_range_tiles {
                 if self.check_reachability(unit_loc, in_range_tile) {
-                    reachable_tiles.insert(in_range_tile);
+                    reachable_locs.insert(in_range_tile);
                 }
             }
-
-            // // Determine which reachable in-range squares are closest
-            let mut surr_point_min_dists = HashMap::<Point2D, usize>::new();
-            let surr_points = &self.get_surrounding_points_space(unit_loc);
-            for surr_point in surr_points {
-                surr_point_min_dists.insert(*surr_point, usize::MAX);
+            // // End turn if no in-range locations are reachable
+            if reachable_locs.is_empty() {
+                continue;
             }
 
-            // // Determine shortest-path to selected in-range square
-            for reachable_tile in reachable_tiles {
-                // Get distance to tile from all spaces around current location
-                let dists = self.get_min_paths_around_unit_loc(unit_loc, reachable_tile);
-                // Update the shortest distance to target for each surrounding space
-                for (loc, dist) in dists {
-                    if surr_point_min_dists.contains_key(&loc) && dist < *surr_point_min_dists.get(&loc).unwrap() {
-                        surr_point_min_dists.insert(loc, dist);
+            // Determine length of min path to each reachable square
+            let mut min_dist: Option<usize> = None;
+            let mut nearest_squares = Vec::<Point2D>::new();
+            for end_loc in reachable_locs {
+                // Find length of min path from current location to reachable location
+                if let Some(dist) = self.find_min_path_length_bfs(unit_loc, end_loc) {
+                    if min_dist.is_none() {
+                        min_dist = Some(dist);
+                        nearest_squares = vec![end_loc];
+                    } else if dist == min_dist.unwrap() {
+                        nearest_squares.push(end_loc);
+                    } else if dist < min_dist.unwrap() {
+                        min_dist = Some(dist);
+                        nearest_squares = vec![end_loc];
                     }
                 }
             }
-
-            let mut min_dist_points = Vec::<Point2D>::new();
-            let mut min_dist = usize::MAX;
-            for (loc, dist) in surr_point_min_dists.iter() {
-                if *dist < min_dist {
-                    min_dist = *dist;
-                    min_dist_points = vec![*loc];
-                } else if *dist < usize::MAX && *dist == min_dist {
-                    min_dist_points.push(*loc);
+            // Sort nearest squares into reading order
+            nearest_squares.sort_by(|a, b| a.cmp(b));
+            let target_square = nearest_squares[0];
+            // Find the min path lengths to selected square from spaces around unit location
+            let surr_min_dists = self.get_min_paths_around_unit_loc(unit_loc, target_square);
+            // Find which step options have the shortest distance to target square
+            let mut min_dist: Option<usize> = None;
+            let mut step_options = Vec::<Point2D>::new();
+            for (step_option, dist) in surr_min_dists {
+                if min_dist.is_none() {
+                    min_dist = Some(dist);
+                    step_options = vec![step_option];
+                } else if dist == min_dist.unwrap() {
+                    step_options.push(step_option);
+                } else if dist < min_dist.unwrap() {
+                    min_dist = Some(dist);
+                    step_options = vec![step_option];
                 }
             }
-            min_dist_points.sort_by(|a, b| a.cmp(b));
+            // Sort step options into reading order and select first option
+            step_options.sort_by(|a, b| a.cmp(b));
+            let step_square = step_options[0];
             
-            // Only move if there are options
-            if min_dist_points.len() >= 1 {
-                let new_loc = min_dist_points[0];
-                // Remove unit from old location and move to the new location
-                self.unit_locations.remove(&unit_loc);
-                self.unit_locations.insert(new_loc, curr_unit);
-                // Check if an enemy unit is now adjacent to unit after moving
-                if self.check_if_enemy_is_adjacent(new_loc, curr_unit.get_variant()) {
-                    println!("END - conducting attack");
-                    self.conduct_attack(new_loc, curr_unit.get_variant());
-                }
+            // Remove unit from old location and move to the new location
+            self.unit_locations.remove(&unit_loc);
+            self.unit_locations.insert(step_square, curr_unit);
+            // Check if an enemy unit is now adjacent to unit after moving
+            if self.check_if_enemy_is_adjacent(step_square, curr_unit.get_variant()) {
+                self.conduct_attack(step_square, curr_unit.get_variant());
             }
         }
-
-        println!("");
-        println!("END OF TURN");
-        println!("");
-        for (loc, unit) in self.unit_locations.iter() {
-            println!(">>>> [{}, {}] Current unit: {:?}", loc.pos_x, loc.pos_y, unit);
-            println!(">>>>>>>> Enemies left: {}", self.count_enemies(unit.get_variant()));
-        }
-
         // Full round now completed, so increment count
         self.full_rounds_compl += 1;
     }
@@ -415,7 +399,6 @@ fn generate_input(input: &str) -> CombatMap {
 #[aoc(day15, part1)]
 fn solve_part_1(input: &CombatMap) -> u64 {
     let mut combat_map = input.duplicate();
-    println!("Starting combat!");
 
     loop {
         combat_map.conduct_turn();
@@ -427,12 +410,21 @@ fn solve_part_1(input: &CombatMap) -> u64 {
 
 #[aoc(day15, part2)]
 fn solve_part_2(input: &CombatMap) -> u64 {
+    let mut _combat_map = input.duplicate();
+
     unimplemented!();
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_d15_p1_proper() {
+        let input = generate_input(&std::fs::read_to_string("./input/2018/day15.txt").unwrap());
+        let result = solve_part_1(&input);
+        assert_eq!(result, 346574);
+    }
 
     #[test]
     fn test_d15_p1_example_01() {

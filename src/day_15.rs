@@ -447,3 +447,50 @@ fn solve_part_1(input: &CombatMap) -> u64 {
 fn solve_part_2(input: &CombatMap) -> u64 {
     unimplemented!();
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_d15_p1_example_01() {
+        let input = generate_input(&std::fs::read_to_string("./input/2018/test/day_15_t_01.txt").unwrap());
+        let result = solve_part_1(&input);
+        assert_eq!(result, 27730);
+    }
+
+    #[test]
+    fn test_d15_p1_example_02() {
+        let input = generate_input(&std::fs::read_to_string("./input/2018/test/day_15_t_02.txt").unwrap());
+        let result = solve_part_1(&input);
+        assert_eq!(result, 36334);
+    }
+
+    #[test]
+    fn test_d15_p1_example_03() {
+        let input = generate_input(&std::fs::read_to_string("./input/2018/test/day_15_t_03.txt").unwrap());
+        let result = solve_part_1(&input);
+        assert_eq!(result, 39514);
+    }
+
+    #[test]
+    fn test_d15_p1_example_04() {
+        let input = generate_input(&std::fs::read_to_string("./input/2018/test/day_15_t_04.txt").unwrap());
+        let result = solve_part_1(&input);
+        assert_eq!(result, 27755);
+    }
+
+    #[test]
+    fn test_d15_p1_example_05() {
+        let input = generate_input(&std::fs::read_to_string("./input/2018/test/day_15_t_05.txt").unwrap());
+        let result = solve_part_1(&input);
+        assert_eq!(result, 28944);
+    }
+
+    #[test]
+    fn test_d15_p1_example_06() {
+        let input = generate_input(&std::fs::read_to_string("./input/2018/test/day_15_t_06.txt").unwrap());
+        let result = solve_part_1(&input);
+        assert_eq!(result, 18740);
+    }
+}

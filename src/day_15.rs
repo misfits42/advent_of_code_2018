@@ -487,6 +487,7 @@ fn solve_part_2(input: &CombatMap) -> u64 {
 mod tests {
     use super::*;
 
+    #[ignore]
     #[test]
     fn test_d15_p1_proper() {
         let input = generate_input(&std::fs::read_to_string("./input/2018/day15.txt").unwrap());
@@ -494,6 +495,7 @@ mod tests {
         assert_eq!(result, 346574);
     }
 
+    #[ignore]
     #[test]
     fn test_d15_p2_proper() {
         let input = generate_input(&std::fs::read_to_string("./input/2018/day15.txt").unwrap());

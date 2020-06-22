@@ -210,14 +210,8 @@ fn solve_part_1(input: &(Vec<OpSample>, Vec<Vec<usize>>)) -> u64 {
         // Try each operation
         for op in Operation::into_enum_iter() {
             // Perform operation and check if output matches output from operation sample
-            let output = perform_operation(&reg_before, &instruct, op);
-            let mut output_match = true;
-            for i in 0..4 {
-                if output[i] != reg_after[i] {
-                    output_match = false;
-                    break;
-                }
-            }
+            let op_output = perform_operation(&reg_before, &instruct, op);
+            let output_match = check_vectors_equal_elements(&reg_after, &op_output);
             if output_match {
                 output_match_count += 1;
             }
@@ -246,13 +240,7 @@ fn solve_part_2(input: &(Vec<OpSample>, Vec<Vec<usize>>)) -> usize {
         for op in Operation::into_enum_iter() {
             // Perform operation and check if output matches sample output
             let op_output = perform_operation(&reg_before, &instruct, op);
-            let mut output_match = true;
-            for i in 0..4 {
-                if op_output[i] != reg_after[i] {
-                    output_match = false;
-                    break;
-                }
-            }
+            let output_match = check_vectors_equal_elements(&reg_after, &op_output);
             // If output matches, add the operation as a possible mapping for the opcode
             if output_match {
                 opcode_poss.get_mut(&samp.get_opcode()).unwrap().insert(op);
@@ -270,6 +258,19 @@ fn solve_part_2(input: &(Vec<OpSample>, Vec<Vec<usize>>)) -> usize {
     }
     // Return the value in register 0 after executing test program
     return reg_state[0];
+}
+
+fn check_vectors_equal_elements<T: PartialEq>(left: &Vec<T>, right: &Vec<T>) -> bool {
+    // First check if vectors are the same length
+    if left.len() != right.len() {
+        return false
+    }
+    for i in 0..left.len() {
+        if left[i] != right[i] {
+            return false;
+        }
+    }
+    return true;
 }
 
 fn determine_opcode_mappings(opcode_poss: HashMap<usize, HashSet<Operation>>) -> HashMap<usize, Operation> {

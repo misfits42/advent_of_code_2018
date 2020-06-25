@@ -32,10 +32,10 @@ impl Point2D {
         return (x_diff + y_diff) as u64;
     }
 
-    /// Calculates the four points surrounding the current point.
+    /// Calculates the four points adjacent to the current point (up, down, left, right).
     /// 
     /// Returned value is sorted by reading order.
-    pub fn get_surrounding_points(&self) -> Vec<Point2D> {
+    pub fn get_adjacent_points(&self) -> Vec<Point2D> {
         let mut output = Vec::<Point2D>::new();
         // Update pos_x - checking for integer overflow boundaries
         if self.pos_x < i64::MAX {

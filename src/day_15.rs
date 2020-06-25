@@ -154,15 +154,15 @@ impl CombatMap {
 
     /// Gets all the locations around the given point that are not walls or occupied by another
     /// unit (friendly or enemy).
-    pub fn get_surrounding_points_space(&self, current_point: Point2D) -> Vec<Point2D> {
-        let surr_points = current_point.get_surrounding_points();
+    pub fn get_adjacent_points_space(&self, current_point: Point2D) -> Vec<Point2D> {
+        let adj_points = current_point.get_adjacent_points();
         let mut check_points = Vec::<Point2D>::new();
-        for surr_point in surr_points {
+        for adj_point in adj_points {
             // Check if the point contains a wall or another unit
-            if *self.map.get(&surr_point).unwrap() != MapTileType::Wall
-                && !self.unit_locations.contains_key(&surr_point)
+            if *self.map.get(&adj_point).unwrap() != MapTileType::Wall
+                && !self.unit_locations.contains_key(&adj_point)
             {
-                check_points.push(surr_point);
+                check_points.push(adj_point);
             }
         }
         check_points.sort_by(|a, b| a.cmp(b));
@@ -196,7 +196,7 @@ impl CombatMap {
                 break;
             }
             // Add all unvisited neighbours to queue
-            let neighbours = self.get_surrounding_points_space(node);
+            let neighbours = self.get_adjacent_points_space(node);
             let enqueued_nodes = node_queue.iter().map(|x| x.0).collect::<HashSet<Point2D>>();
             for neigh in neighbours {
                 if !visited.contains_key(&neigh) && !enqueued_nodes.contains(&neigh) {
@@ -216,7 +216,7 @@ impl CombatMap {
     /// starting location.
     pub fn get_min_paths_around_unit_loc(&self, unit_loc: Point2D, end_loc: Point2D) -> Vec<(Point2D, usize)> {
         let mut output = Vec::<(Point2D, usize)>::new();
-        let check_points = self.get_surrounding_points_space(unit_loc);
+        let check_points = self.get_adjacent_points_space(unit_loc);
         for point in check_points {
             if let Some(dist) = self.find_min_path_length_bfs(point, end_loc) {
                 output.push((point, dist));
@@ -259,9 +259,9 @@ impl CombatMap {
     /// Checks if there is an enemy unit adjacent to the given unit location.
     fn check_if_enemy_is_adjacent(&self, unit_loc: Point2D, friendly: UnitVariant) -> bool {
         // Get all points around current unit location
-        let surr_points = unit_loc.get_surrounding_points();
-        // Check if any surrounding points contain an enemy unit
-        for point in surr_points {
+        let adj_points = unit_loc.get_adjacent_points();
+        // Check if any adjacent points contain an enemy unit
+        for point in adj_points {
             if let Some(unit) = self.unit_locations.get(&point) {
                 if unit.get_variant() != friendly {
                     return true;
@@ -274,11 +274,11 @@ impl CombatMap {
     /// Conducts an attack from the given attacker location, as per the combat rules.
     fn conduct_attack(&mut self, attacker_loc: Point2D, friendly: UnitVariant) {
         // Get all points around attacker loc
-        let surr_points = attacker_loc.get_surrounding_points();
+        let adj_points = attacker_loc.get_adjacent_points();
         let mut min_hp: Option<u64> = None;
         let mut min_hp_targets = Vec::<Point2D>::new();
-        // Check surrounding points for enemies
-        for point in surr_points {
+        // Check adjacent points for enemies
+        for point in adj_points {
             // Check if point adjacent to attacking unit contains a unit
             if let Some(target_unit) = self.unit_locations.get(&point) {
                 // Check if the unit is an enemy
@@ -337,7 +337,7 @@ impl CombatMap {
             let mut in_range_tiles = HashSet::<Point2D>::new();
             for (unit_loc, unit) in self.unit_locations.iter() {
                 if unit.get_variant() != curr_unit.get_variant() {
-                    in_range_tiles.extend(self.get_surrounding_points_space(*unit_loc).iter());
+                    in_range_tiles.extend(self.get_adjacent_points_space(*unit_loc).iter());
                 }
             }
 
@@ -374,11 +374,11 @@ impl CombatMap {
             nearest_squares.sort_by(|a, b| a.cmp(b));
             let target_square = nearest_squares[0];
             // Find the min path lengths to selected square from spaces around unit location
-            let surr_min_dists = self.get_min_paths_around_unit_loc(unit_loc, target_square);
+            let adj_min_dists = self.get_min_paths_around_unit_loc(unit_loc, target_square);
             // Find which step options have the shortest distance to target square
             let mut min_dist: Option<usize> = None;
             let mut step_options = Vec::<Point2D>::new();
-            for (step_option, dist) in surr_min_dists {
+            for (step_option, dist) in adj_min_dists {
                 if min_dist.is_none() {
                     min_dist = Some(dist);
                     step_options = vec![step_option];

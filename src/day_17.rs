@@ -1,3 +1,4 @@
+use std::fmt;
 use std::collections::HashMap;
 use regex::Regex;
 
@@ -96,7 +97,7 @@ impl ReservoirMap {
     pub fn flow_water(&mut self) {
         // Start with spring at (x:500, y:0)
         let spring_loc = Point2D::new(500, 0);
-        self.flow_water_recurse_new(spring_loc);
+        self.flow_water_dfs(spring_loc);
     }
 
     fn check_if_full(&self, loc: Point2D) -> bool {
@@ -108,199 +109,98 @@ impl ReservoirMap {
         return false;
     }
 
-    fn flow_water_recurse_new(&mut self, spring_start: Point2D) {
-        //println!("- Water flow down from: {:?}", spring_start);
-
-        if spring_start.pos_y > self.max_y {
+    fn flow_water_dfs(&mut self, node: Point2D) {
+        // base case - exceeded max depth
+        if node.pos_y > self.max_y {
             return;
         }
+        self.contents.insert(node, MapTile::WaterFlow);
 
-        let curr_loc = spring_start;
-        self.contents.insert(curr_loc, MapTile::WaterFlow);
-
-        let below_loc = curr_loc.move_point(0, 1);
-
-        // Check if water can flow down
-        if !self.check_if_full(below_loc) {
-            //println!("Water flow down: {:?}", curr_loc.move_point(0, 1));
-            self.flow_water_recurse_new(curr_loc.move_point(0, 1));
+        // Check if water can flow down - visit neighbour below
+        let node_below = node.move_point(0, 1);
+        if !self.check_if_full(node_below) {
+            self.flow_water_dfs(node_below);
         }
-        if let Some(tile) = self.contents.get(&below_loc) {
-            if *tile == MapTile::WaterFlow {
-                return;
-            }
-        }
-        // Check if water is bounded on left
-        let mut left_bel_loc = curr_loc.move_point(0, 1);
-        let mut left_loc = curr_loc.move_point(-1, 0);
-        let mut is_left_bounded = true;
-        loop {
-            // Check if something below and to left
-            if self.check_if_full(left_bel_loc) && self.check_if_full(left_loc) {
-                break;
-            // Check if something below and not to left
-            } else if self.check_if_full(left_bel_loc) && !self.check_if_full(left_loc) {
-                left_bel_loc = left_bel_loc.move_point(-1, 0);
-                left_loc = left_loc.move_point(-1, 0);
-            // Otherwise something not below - not left bounded
-            } else {
-                is_left_bounded = false;
-                break;
-            }
-        }
-        // Check if water is bounded on right
-        let mut right_bel_loc = curr_loc.move_point(0, 1);
-        let mut right_loc = curr_loc.move_point(1, 0);
-        let mut is_right_bounded = true;
-        loop {
-            // Check if something below and to right
-            if self.check_if_full(right_bel_loc) && self.check_if_full(right_loc) {
-                break;
-            // Check if something below and not to right
-            } else if self.check_if_full(right_bel_loc) && !self.check_if_full(right_loc) {
-                right_bel_loc = right_bel_loc.move_point(1, 0);
-                right_loc = right_loc.move_point(1, 0);
-            // Otherwise something not below - not right bounded
-            } else {
-                is_right_bounded = false;
-                break;
-            }
-        }
-        // Check if water is bounded on left and right - then fill up row
-        let left_bound = left_bel_loc.pos_x;
-        let right_bound = right_bel_loc.pos_x;
-        if is_left_bounded && is_right_bounded {
-            for x in left_bound..=right_bound {
-                let new_water_loc = Point2D::new(x, curr_loc.pos_y);
-                self.contents.insert(new_water_loc, MapTile::WaterRest);
-            }
-            self.flow_water_recurse_new(curr_loc.move_point(0, -1));
+        // check if full below after recurse
+        if !self.check_if_full(node_below) {
+            return;
+        // Water cannot flow down
         } else {
-            // Flow water to left and right
-            for x in left_bound..=right_bound {
-                let new_water_flow_loc = Point2D::new(x, curr_loc.pos_y);
-                self.contents.insert(new_water_flow_loc, MapTile::WaterFlow);
-            }
-            if !is_left_bounded {
-                self.flow_water_recurse_new(left_bel_loc); //.move_point(0, 1));
-            }
-            if !is_right_bounded {
-                self.flow_water_recurse_new(right_bel_loc); //.move_point(0, 1));
-            }
-        }
-    }
-
-    fn flow_water_recurse(&mut self, spring_start: Point2D) {
-        println!("- Water flow down from: {:?}", spring_start);
-        // Check if water can flow down
-        let mut curr_loc = spring_start;
-        self.contents.insert(curr_loc, MapTile::WaterFlow);
-        loop {
-            let below_loc = Point2D::new(curr_loc.pos_x, curr_loc.pos_y + 1);
-            println!("---- Below loc: {:?}", below_loc);
-            // Water can flow down
-            if !self.contents.contains_key(&below_loc) {
-                // Stop if we will go below the max depth
-                if below_loc.pos_y > self.max_y {
-                    println!("---- Max depth reached. Stoping flow stream...");
+            // Check for left bound
+            let mut left_bel_node = node.move_point(0, 1);
+            let mut left_node = node.move_point(-1, 0);
+            let mut is_left_bounded = true;
+            loop {
+                // Check if we have reached left bound
+                if self.check_if_full(left_node) && self.check_if_full(left_bel_node) {
+                    break;
+                // Not at left bound yet, but still something underneath
+                } else if !self.check_if_full(left_node) && self.check_if_full(left_bel_node) {
+                    left_bel_node = left_bel_node.move_point(-1, 0);
+                    left_node = left_node.move_point(-1, 0);
+                // Water will fall
+                } else {
+                    is_left_bounded = false;
                     break;
                 }
-                println!("---- Flowing water down...");
-                curr_loc = curr_loc.move_point(0, 1);
-                self.contents.insert(curr_loc, MapTile::WaterFlow);
-            // Otherwise, we have clay below
+            }
+            // Check for right bound
+            let mut right_bel_node = node.move_point(0, 1);
+            let mut right_node = node.move_point(1, 0);
+            let mut is_right_bounded = true;
+            loop {
+                // Check if we are at right bound
+                if self.check_if_full(right_node) && self.check_if_full(right_bel_node) {
+                    break;
+                // Check if we are still going towards right bound, but water not falling
+                } else if !self.check_if_full(right_node) && self.check_if_full(right_bel_node) {
+                    right_bel_node = right_bel_node.move_point(1, 0);
+                    right_node = right_node.move_point(1, 0);
+                // Water will fall
+                } else {
+                    is_right_bounded = false;
+                    break;
+                }
+            }
+            // If water is bounded on left and right, fill row and back-track
+            let x_left_bound = left_bel_node.pos_x;
+            let x_right_bound = right_bel_node.pos_x;
+            if is_left_bounded && is_right_bounded {
+                for x in x_left_bound..=x_right_bound {
+                    self.contents.insert(Point2D::new(x, node.pos_y), MapTile::WaterRest);
+                }
+                return;
             } else {
-                println!("- Water not flow down from: {:?}", curr_loc);
-                println!("---- Water cannot flow down.");
-                // Check if the water can flow left without falling down
-                println!("---- Checking left flow...");
-                let mut left_below_loc = curr_loc.move_point(0, 1);
-                let mut left_loc = curr_loc.move_point(-1, 0);
-                let mut left_bounded = true;
-                loop {
-                    // Check if something below and to left
-                    if self.contents.contains_key(&left_below_loc) && self.contents.contains_key(&left_loc) {
-                        break;
-                    // Check if something below but not to left
-                    } else if self.contents.contains_key(&left_below_loc) && !self.contents.contains_key(&left_loc) {
-                        left_below_loc = left_below_loc.move_point(-1, 0);
-                        left_loc = left_loc.move_point(-1, 0);
-                    // Otherwise something not below - water flows down again
-                    } else {
-                        left_bounded = false;
-                        break;
-                    }
+                for x in x_left_bound..=x_right_bound {
+                    self.contents.insert(Point2D::new(x, node.pos_y), MapTile::WaterFlow);
                 }
-                println!("---- Checking right flow...");
-                // Check if water can flow right without falling down
-                let mut right_below_loc = curr_loc.move_point(0, 1);
-                let mut right_loc = curr_loc.move_point(1, 0);
-                let mut right_bounded = true;
-                loop {
-                    // Check if something below and to right
-                    if self.contents.contains_key(&right_below_loc) && self.contents.contains_key(&right_loc) {
-                        break;
-                    // Check if something below but not to right
-                    } else if self.contents.contains_key(&right_below_loc) && !self.contents.contains_key(&right_loc) {
-                        right_below_loc = right_below_loc.move_point(1, 0);
-                        right_loc = right_loc.move_point(1, 0);
-                    // Otherwise something not below - water flows down again
-                    } else {
-                        right_bounded = false;
-                        break;
-                    }
+                if !is_left_bounded {
+                    self.flow_water_dfs(left_bel_node.move_point(0, -1));
                 }
-                // Check if we need to recurse flows
-                let left_bound = left_below_loc.pos_x;
-                let right_bound = right_below_loc.pos_x;
-                if !left_bounded || !right_bounded {
-                    // Insert water flow from current location to before fall point
-                    for x in left_bound..curr_loc.pos_x {
-                        let new_water_flow_loc = Point2D::new(x, curr_loc.pos_y);
-                        self.contents.insert(new_water_flow_loc, MapTile::WaterFlow);
-                    }
-                    // Insert water flow from current location to fall point to right
-                    for x in curr_loc.pos_x..=right_bound {
-                        let new_water_flow_loc = Point2D::new(x, curr_loc.pos_y);
-                        self.contents.insert(new_water_flow_loc, MapTile::WaterFlow);
-                    }
-                    if !left_bounded {
-                        self.flow_water_recurse(left_below_loc.move_point(0, -1));
-                    }
-                    if !right_bounded {
-                        self.flow_water_recurse(right_below_loc.move_point(0, -1));
-                    }
-                    break;
-                }
-                if left_bounded && right_bounded {
-                    // Now we know water can flow to left and right - fill the row
-                    for x in left_bound..=right_bound {
-                        let new_water_loc = Point2D::new(x, curr_loc.pos_y);
-                        self.contents.insert(new_water_loc, MapTile::WaterRest);
-                    }
-                    println!("---- ROW FILLED ---- x={}..{}, y={}", left_bound, right_bound, curr_loc.pos_y);
-                    // Move back up water flow again and check flow
-                    curr_loc = curr_loc.move_point(0, -1);
+                if !is_right_bounded {
+                    self.flow_water_dfs(right_bel_node.move_point(0, -1));
                 }
             }
         }
-        println!("---- Flow stream stopped.");
     }
 
-    pub fn count_water(&self) -> u64 {
+    pub fn get_tile_count(&self, tile_type: MapTile) -> u64 {
         let mut count: u64 = 0;
         for (loc, tile) in self.contents.iter() {
+            // Ignore tiles with Y co-ord outside of min and max values from scan results
             if loc.pos_y < self.min_y || loc.pos_y > self.max_y {
                 continue;
             }
-            if *tile == MapTile::WaterFlow || *tile == MapTile::WaterRest {
+            if *tile == tile_type {
                 count += 1;
             }
         }
         return count;
     }
+}
 
-    pub fn generate_string(&self) -> String {
+impl std::fmt::Display for ReservoirMap {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
         let mut output = String::new();
         for y in 0..=self.max_y+1 {
             for x in self.min_x..=self.max_x {
@@ -321,7 +221,7 @@ impl ReservoirMap {
             }
             output += "\n";
         }
-        return output;
+        write!(f, "{}", output)
     }
 }
 
@@ -333,18 +233,27 @@ fn generate_input(input: &str) -> ReservoirMap {
 #[aoc(day17, part1)]
 fn solve_part_1(input: &ReservoirMap) -> u64 {
     let mut reservoir_map = input.duplicate();
-    // println!("{}", reservoir_map.generate_string());
-
     reservoir_map.flow_water();
-
-    println!("{}", reservoir_map.generate_string());
-    
-    return reservoir_map.count_water();
+    // Get total number of water tiles after completing flow simulation
+    let water_rest = reservoir_map.get_tile_count(MapTile::WaterRest);
+    let water_flow = reservoir_map.get_tile_count(MapTile::WaterFlow);
+    return water_rest + water_flow;
 }
 
 #[aoc(day17, part2)]
 fn solve_part_2(input: &ReservoirMap) -> u64 {
     let mut reservoir_map = input.duplicate();
-
     unimplemented!();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_d17_p1_proper() {
+        let input = generate_input("./input/2018/day17.txt");
+        let result = solve_part_1(&input);
+        assert_eq!(31861, result);
+    }
 }

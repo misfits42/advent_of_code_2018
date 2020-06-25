@@ -243,17 +243,28 @@ fn solve_part_1(input: &ReservoirMap) -> u64 {
 #[aoc(day17, part2)]
 fn solve_part_2(input: &ReservoirMap) -> u64 {
     let mut reservoir_map = input.duplicate();
-    unimplemented!();
+    reservoir_map.flow_water();
+    // Get total number of rest water tiles after completing flow simulation
+    return reservoir_map.get_tile_count(MapTile::WaterRest);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    #[ignore]
     #[test]
     fn test_d17_p1_proper() {
-        let input = generate_input("./input/2018/day17.txt");
+        let input = generate_input(&std::fs::read_to_string("./input/2018/day17.txt").unwrap());
         let result = solve_part_1(&input);
         assert_eq!(31861, result);
+    }
+
+    #[ignore]
+    #[test]
+    fn test_d17_p2_proper() {
+        let input = generate_input(&std::fs::read_to_string("./input/2018/day17.txt").unwrap());
+        let result = solve_part_2(&input);
+        assert_eq!(26030, result);
     }
 }

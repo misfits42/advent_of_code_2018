@@ -13,7 +13,9 @@ enum MapTile {
 struct ReservoirMap {
     contents: HashMap<Point2D, MapTile>,
     min_y: i64,
-    max_y: i64
+    max_y: i64,
+    min_x: i64,
+    max_x: i64
 }
 
 impl ReservoirMap {
@@ -23,6 +25,8 @@ impl ReservoirMap {
         let y_range_regex = Regex::new(r"x=(\d+), y=(\d+)..(\d+)").unwrap();
         let mut max_y: i64 = i64::MIN;
         let mut min_y: i64 = i64::MAX;
+        let mut max_x: i64 = i64::MIN;
+        let mut min_x: i64 = i64::MAX;
         for line in raw_map.lines() {
             if x_range_regex.is_match(line) {
                 for capture in x_range_regex.captures_iter(line) {
@@ -37,6 +41,12 @@ impl ReservoirMap {
                         max_y = y_loc;
                     } else if y_loc < min_y {
                         min_y = y_loc;
+                    }
+                    if x_low < min_x {
+                        min_x = x_low;
+                    }
+                    if x_high > max_x {
+                        max_x = x_high;
                     }
                     break;
                 }
@@ -55,6 +65,11 @@ impl ReservoirMap {
                     if y_low < min_y {
                         min_y = y_low;
                     }
+                    if x_loc < min_x {
+                        min_x = x_loc;
+                    } else if x_loc > max_x {
+                        max_x = x_loc;
+                    }
                 }
             }
         }
@@ -62,7 +77,9 @@ impl ReservoirMap {
         Self {
             contents: contents,
             min_y: min_y,
-            max_y: max_y
+            max_y: max_y,
+            min_x: min_x - 1,
+            max_x: max_x + 1
         }
     }
 
@@ -70,17 +87,110 @@ impl ReservoirMap {
         Self {
             contents: self.contents.clone(),
             min_y: self.min_y,
-            max_y: self.max_y
+            max_y: self.max_y,
+            min_x: self.min_x,
+            max_x: self.max_x
         }
     }
 
     pub fn flow_water(&mut self) {
         // Start with spring at (x:500, y:0)
         let spring_loc = Point2D::new(500, 0);
-        self.flow_water_recurse(spring_loc);
+        self.flow_water_recurse_new(spring_loc);
     }
 
-    fn flow_water_recurse(&mut self, spring_start: Point2D,) {
+    fn check_if_full(&self, loc: Point2D) -> bool {
+        if let Some(tile) = self.contents.get(&loc) {
+            if *tile == MapTile::Clay || *tile == MapTile::WaterRest {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    fn flow_water_recurse_new(&mut self, spring_start: Point2D) {
+        //println!("- Water flow down from: {:?}", spring_start);
+
+        if spring_start.pos_y > self.max_y {
+            return;
+        }
+
+        let curr_loc = spring_start;
+        self.contents.insert(curr_loc, MapTile::WaterFlow);
+
+        let below_loc = curr_loc.move_point(0, 1);
+
+        // Check if water can flow down
+        if !self.check_if_full(below_loc) {
+            //println!("Water flow down: {:?}", curr_loc.move_point(0, 1));
+            self.flow_water_recurse_new(curr_loc.move_point(0, 1));
+        }
+        if let Some(tile) = self.contents.get(&below_loc) {
+            if *tile == MapTile::WaterFlow {
+                return;
+            }
+        }
+        // Check if water is bounded on left
+        let mut left_bel_loc = curr_loc.move_point(0, 1);
+        let mut left_loc = curr_loc.move_point(-1, 0);
+        let mut is_left_bounded = true;
+        loop {
+            // Check if something below and to left
+            if self.check_if_full(left_bel_loc) && self.check_if_full(left_loc) {
+                break;
+            // Check if something below and not to left
+            } else if self.check_if_full(left_bel_loc) && !self.check_if_full(left_loc) {
+                left_bel_loc = left_bel_loc.move_point(-1, 0);
+                left_loc = left_loc.move_point(-1, 0);
+            // Otherwise something not below - not left bounded
+            } else {
+                is_left_bounded = false;
+                break;
+            }
+        }
+        // Check if water is bounded on right
+        let mut right_bel_loc = curr_loc.move_point(0, 1);
+        let mut right_loc = curr_loc.move_point(1, 0);
+        let mut is_right_bounded = true;
+        loop {
+            // Check if something below and to right
+            if self.check_if_full(right_bel_loc) && self.check_if_full(right_loc) {
+                break;
+            // Check if something below and not to right
+            } else if self.check_if_full(right_bel_loc) && !self.check_if_full(right_loc) {
+                right_bel_loc = right_bel_loc.move_point(1, 0);
+                right_loc = right_loc.move_point(1, 0);
+            // Otherwise something not below - not right bounded
+            } else {
+                is_right_bounded = false;
+                break;
+            }
+        }
+        // Check if water is bounded on left and right - then fill up row
+        let left_bound = left_bel_loc.pos_x;
+        let right_bound = right_bel_loc.pos_x;
+        if is_left_bounded && is_right_bounded {
+            for x in left_bound..=right_bound {
+                let new_water_loc = Point2D::new(x, curr_loc.pos_y);
+                self.contents.insert(new_water_loc, MapTile::WaterRest);
+            }
+            self.flow_water_recurse_new(curr_loc.move_point(0, -1));
+        } else {
+            // Flow water to left and right
+            for x in left_bound..=right_bound {
+                let new_water_flow_loc = Point2D::new(x, curr_loc.pos_y);
+                self.contents.insert(new_water_flow_loc, MapTile::WaterFlow);
+            }
+            if !is_left_bounded {
+                self.flow_water_recurse_new(left_bel_loc); //.move_point(0, 1));
+            }
+            if !is_right_bounded {
+                self.flow_water_recurse_new(right_bel_loc); //.move_point(0, 1));
+            }
+        }
+    }
+
+    fn flow_water_recurse(&mut self, spring_start: Point2D) {
         println!("- Water flow down from: {:?}", spring_start);
         // Check if water can flow down
         let mut curr_loc = spring_start;
@@ -189,6 +299,30 @@ impl ReservoirMap {
         }
         return count;
     }
+
+    pub fn generate_string(&self) -> String {
+        let mut output = String::new();
+        for y in 0..=self.max_y+1 {
+            for x in self.min_x..=self.max_x {
+                if x == 500 && y == 0 {
+                    output += "+";
+                    continue;
+                }
+                let loc = Point2D::new(x, y);
+                if let Some(tile) = self.contents.get(&loc) {
+                    match tile {
+                        MapTile::Clay => output += "#",
+                        MapTile::WaterRest => output += "~",
+                        MapTile::WaterFlow => output += "|",
+                    }
+                } else {
+                    output += ".";
+                }
+            }
+            output += "\n";
+        }
+        return output;
+    }
 }
 
 #[aoc_generator(day17)]
@@ -199,7 +333,12 @@ fn generate_input(input: &str) -> ReservoirMap {
 #[aoc(day17, part1)]
 fn solve_part_1(input: &ReservoirMap) -> u64 {
     let mut reservoir_map = input.duplicate();
+    // println!("{}", reservoir_map.generate_string());
+
     reservoir_map.flow_water();
+
+    println!("{}", reservoir_map.generate_string());
+    
     return reservoir_map.count_water();
 }
 

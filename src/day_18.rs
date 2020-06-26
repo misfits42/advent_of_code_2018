@@ -155,7 +155,53 @@ fn solve_part_1(input: &LumberArea) -> u64 {
 
 #[aoc(day18, part2)]
 fn solve_part_2(input: &LumberArea) -> u64 {
-    unimplemented!();
+    let mut lumber_area = input.duplicate();
+    // Keep track of how many times each resource value has been seen
+    let mut res_val_counts = HashMap::<u64, u64>::new();
+    // Keep track of all resource values, in order observed
+    let mut res_vals: Vec<u64> = vec![0];
+    // Parameters to help us find the cycle
+    let cycle_count = 10;
+    let min_cycle_length = 20;
+    // Simulate minutes going by, looking for a cycle in the resource values
+    for minutes_elapsed in 1..=1000000000 {
+        // Simulate the next minute and calculate the resource value
+        lumber_area.simulate_next_minute();
+        let res_val = lumber_area.calculate_resource_value();
+        // Update the count for how many times the resource_value has been seen
+        if let Some(count) = res_val_counts.get_mut(&res_val) {
+            *count += 1;
+        } else {
+            res_val_counts.insert(res_val, 1);
+        }
+        // Add the resource value to the list of all values generated
+        res_vals.push(res_val);
+        if let Some(count) = res_val_counts.get(&res_val) {
+            // Check if we have a node with the the limit - indicating cycle
+            let mut i = minutes_elapsed;
+            if *count >= cycle_count {
+                let mut cycle = Vec::<(u64, u64)>::new();
+                // Until we reach same values as start with cycle being over min length, keep adding
+                // values to it
+                loop {
+                    let next = res_vals[i];
+                    if next == res_val && cycle.len() >= min_cycle_length {
+                        // Check which of the minutes in the period aligns with the end-goal
+                        let period = cycle.len() as u64;
+                        for (mins, val) in cycle.iter() {
+                            if (1000000000 - mins) % period == 0 {
+                                return *val;
+                            }
+                        }
+                    }
+                    // Add the next resource value in the cycle, in backwards order
+                    cycle.push((i as u64, next));
+                    i -= 1;
+                }
+            }
+        }
+    }
+    panic!("D18_P2 - you should have found the cycle by now. HERE BE DRAGONS!");
 }
 
 #[cfg(test)]

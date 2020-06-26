@@ -55,6 +55,26 @@ impl Point2D {
         output.sort_by(|a, b| a.cmp(b));
         return output;
     }
+
+    pub fn get_surrounding_points(&self) -> Vec<Point2D> {
+        let mut output = Vec::<Point2D>::new();
+        // Get the adjacent points
+        output.extend(self.get_adjacent_points().iter());
+        // Get the surrounding points at the diagonals
+        if self.pos_x > i64::MIN && self.pos_y > i64::MIN {
+            output.push(self.move_point(-1, -1));
+        }
+        if self.pos_x > i64::MIN && self.pos_y < i64::MAX {
+            output.push(self.move_point(-1, 1));
+        } 
+        if self.pos_x < i64::MAX && self.pos_y > i64::MIN {
+            output.push(self.move_point(1, -1));
+        }
+        if self.pos_x < i64::MAX && self.pos_y < i64::MAX {
+            output.push(self.move_point(1, 1));
+        }
+        return output;
+    }
 }
 
 impl fmt::Display for Point2D {

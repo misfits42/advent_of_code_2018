@@ -201,7 +201,8 @@ fn solve_part_2(input: &LumberArea) -> u64 {
             }
         }
     }
-    panic!("D18_P2 - you should have found the cycle by now. HERE BE DRAGONS!");
+    // Return resource value - HOWEVER, algo should have found the cycle by now for puzzle input
+    return lumber_area.calculate_resource_value();
 }
 
 #[cfg(test)]

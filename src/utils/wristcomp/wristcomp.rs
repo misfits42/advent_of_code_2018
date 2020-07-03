@@ -2,22 +2,22 @@ use enum_iterator::IntoEnumIterator;
 
 #[derive(Copy, Clone, IntoEnumIterator, Hash, PartialEq, Eq, Debug)]
 pub enum Operation {
-    AddReg,
-    AddImm,
-    MulReg,
-    MulImm,
-    BitANDReg,
-    BitANDImm,
-    BitORReg,
-    BitORImm,
-    SetReg,
-    SetImm,
-    GtImmReg,
-    GtRegImm,
-    GtRegReg,
-    EqImmReg,
-    EqRegImm,
-    EqRegReg
+    AddReg,     // add register
+    AddImm,     // add immediate
+    MulReg,     // multiply register
+    MulImm,     // multiply immediate
+    BitANDReg,  // bitwise AND register
+    BitANDImm,  // bitwise AND immediate
+    BitORReg,   // bitwise OR register
+    BitORImm,   // bitwise IR immediate
+    SetReg,     // set register
+    SetImm,     // set immediate
+    GtImmReg,   // greater-than immediate/register
+    GtRegImm,   // greater-than register/immediate
+    GtRegReg,   // greater-than register/register
+    EqImmReg,   // equal immediate/register
+    EqRegImm,   // equal register/immediate
+    EqRegReg    // equal register/register
 }
 
 impl Operation {
@@ -82,11 +82,18 @@ impl WristComputer {
         }
     }
 
+    pub fn update_register_zero(&mut self, val: usize) {
+        self.registers[0] = val;
+    }
+
     pub fn get_registers(&self) -> Vec<usize> {
         return self.registers.clone();
     }
 
     pub fn execute_program(&mut self, program: &Vec<Instruction>) {
+        // Re-initialise the instruction pointer to 0
+        self.ip_val = 0;
+
         if self.ip_reg.is_none() {
             for instruct in program {
                 let after = WristComputer::perform_operation(&self.registers, &instruct);
@@ -102,6 +109,13 @@ impl WristComputer {
                 self.registers[self.ip_reg.unwrap()] = self.ip_val;
                 // Get next instruction to execute
                 let instruction = program[self.ip_val];
+                if self.registers[1] % 1000 == 0 {
+                    println!("[{}] {:?} --- {:?}", self.ip_val, instruction.get_operation(), instruction.get_values());
+                    println!(">>>> Reg state: {:?}", self.registers);
+                    println!("");
+                }
+                // std::thread::sleep(std::time::Duration::from_millis(1));
+
                 // Execute instruction
                 let after = WristComputer::perform_operation(&self.registers, &instruction);
                 self.registers = after;

@@ -42,5 +42,9 @@ fn solve_part_1(input: &(usize, Vec<Instruction>)) -> usize {
 
 #[aoc(day19, part2)]
 fn solve_part_2(input: &(usize, Vec<Instruction>)) -> usize {
-    unimplemented!();
+    let mut wrist_computer = WristComputer::new(Some(input.0));
+    wrist_computer.update_register_zero(1);
+    // Run background program time
+    wrist_computer.execute_program(&input.1);
+    return wrist_computer.get_registers()[0];
 }

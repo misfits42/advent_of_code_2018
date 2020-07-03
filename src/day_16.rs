@@ -154,7 +154,7 @@ fn solve_part_2(input: &(Vec<OpSample>, Vec<Vec<usize>>)) -> usize {
     }
     // Execute the test program
     let mut wrist_comp = WristComputer::new(None);
-    wrist_comp.execute_program(program);
+    wrist_comp.execute_program(&program);
     // Return the value in register 0 after executing test program
     return wrist_comp.get_registers()[0];
 }

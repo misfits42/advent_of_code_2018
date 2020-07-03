@@ -20,6 +20,30 @@ pub enum Operation {
     EqRegReg
 }
 
+impl Operation {
+    pub fn from_string(s: &str) -> Option<Operation> {
+        match s {
+            "addr" => Some(Operation::AddReg),
+            "addi" => Some(Operation::AddImm),
+            "mulr" => Some(Operation::MulReg),
+            "muli" => Some(Operation::MulImm),
+            "banr" => Some(Operation::BitANDReg),
+            "bani" => Some(Operation::BitANDImm),
+            "borr" => Some(Operation::BitORReg),
+            "bori" => Some(Operation::BitORImm),
+            "setr" => Some(Operation::SetReg),
+            "seti" => Some(Operation::SetImm),
+            "gtir" => Some(Operation::GtImmReg),
+            "gtri" => Some(Operation::GtRegImm),
+            "gtrr" => Some(Operation::GtRegReg),
+            "eqir" => Some(Operation::EqImmReg),
+            "eqri" => Some(Operation::EqRegImm),
+            "eqrr" => Some(Operation::EqRegReg),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct Instruction {
     op: Operation,
@@ -45,14 +69,16 @@ impl Instruction {
 
 pub struct WristComputer {
     registers: Vec<usize>,
-    ip: Option<usize>
+    ip_reg: Option<usize>,
+    ip_val: usize
 }
 
 impl WristComputer {
-    pub fn new(ip: Option<usize>) -> Self {
+    pub fn new(ip_reg: Option<usize>) -> Self {
         Self {
             registers: vec![0; 6],
-            ip: ip
+            ip_reg: ip_reg,
+            ip_val: 0,
         }
     }
 
@@ -60,14 +86,28 @@ impl WristComputer {
         return self.registers.clone();
     }
 
-    pub fn execute_program(&mut self, program: Vec<Instruction>) {
-        if self.ip.is_none() {
+    pub fn execute_program(&mut self, program: &Vec<Instruction>) {
+        if self.ip_reg.is_none() {
             for instruct in program {
                 let after = WristComputer::perform_operation(&self.registers, &instruct);
                 self.registers = after;
             }
         } else {
-            unimplemented!();
+            loop {
+                // Check if instruction pointer still within bounds of program
+                if self.ip_val >= program.len() {
+                    break;
+                }
+                // Write instruction pointer value to register
+                self.registers[self.ip_reg.unwrap()] = self.ip_val;
+                // Get next instruction to execute
+                let instruction = program[self.ip_val];
+                // Execute instruction
+                let after = WristComputer::perform_operation(&self.registers, &instruction);
+                self.registers = after;
+                // Retrieve value from IP register and increment
+                self.ip_val = self.registers[self.ip_reg.unwrap()] + 1;
+            }
         }
     }
 

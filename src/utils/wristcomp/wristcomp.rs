@@ -119,8 +119,6 @@ impl WristComputer {
                 self.registers = after;
                 // Retrieve value from IP register and increment
                 self.ip_val = self.registers[self.ip_reg.unwrap()] + 1;
-
-
             }
         }
     }

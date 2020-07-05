@@ -42,19 +42,10 @@ fn solve_part_1(input: &(usize, Vec<Instruction>)) -> usize {
 
 #[aoc(day19, part2)]
 fn solve_part_2(_input: &(usize, Vec<Instruction>)) -> usize {
-    /*
-    let mut wrist_computer = WristComputer::new(Some(input.0));
-    wrist_computer.update_register_zero(1);
-    // Run background program time
-    wrist_computer.execute_program(&input.1);
-    return wrist_computer.get_registers()[0];
-    */
-
-    // After observing
     return test_wristcomp_background_process();
 }
 
-/// Calculates the values in register 0 after the background process described in AoC 2018 D19, P2.
+/// Calculates the value in register 0 after the background process described in AoC 2018 D19, P2.
 /// 
 /// Determined by observing execution of background process by wrist computer and reverse
 /// engineering the main loop. Some optimisations were added after the reverse engineering to get

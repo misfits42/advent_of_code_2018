@@ -109,18 +109,18 @@ impl WristComputer {
                 self.registers[self.ip_reg.unwrap()] = self.ip_val;
                 // Get next instruction to execute
                 let instruction = program[self.ip_val];
-                if self.registers[1] % 1000 == 0 {
-                    println!("[{}] {:?} --- {:?}", self.ip_val, instruction.get_operation(), instruction.get_values());
-                    println!(">>>> Reg state: {:?}", self.registers);
-                    println!("");
-                }
-                // std::thread::sleep(std::time::Duration::from_millis(1));
+                
+                // println!("[{}] {:?} --- {:?}", self.ip_val, instruction.get_operation(), instruction.get_values());
+                // println!(">>>> Reg state: {:?}", self.registers);
+                // println!("");
 
                 // Execute instruction
                 let after = WristComputer::perform_operation(&self.registers, &instruction);
                 self.registers = after;
                 // Retrieve value from IP register and increment
                 self.ip_val = self.registers[self.ip_reg.unwrap()] + 1;
+
+
             }
         }
     }

@@ -41,10 +41,67 @@ fn solve_part_1(input: &(usize, Vec<Instruction>)) -> usize {
 }
 
 #[aoc(day19, part2)]
-fn solve_part_2(input: &(usize, Vec<Instruction>)) -> usize {
+fn solve_part_2(_input: &(usize, Vec<Instruction>)) -> usize {
+    /*
     let mut wrist_computer = WristComputer::new(Some(input.0));
     wrist_computer.update_register_zero(1);
     // Run background program time
     wrist_computer.execute_program(&input.1);
     return wrist_computer.get_registers()[0];
+    */
+
+    // After observing
+    return test_wristcomp_background_process();
+}
+
+/// Calculates the values in register 0 after the background process described in AoC 2018 D19, P2.
+/// 
+/// Determined by observing execution of background process by wrist computer and reverse
+/// engineering the main loop. Some optimisations were added after the reverse engineering to get
+/// to the outcome significantly faster.
+fn test_wristcomp_background_process() -> usize {
+    // Initialise all registers to values present when process enters primary loop
+    let mut reg: Vec<usize> = vec![0, 1, 0, 1, 2, 10551364];
+    loop {
+        reg[1] = 1;
+        loop {
+            // This check is an optimisation!
+            if reg[5] % reg[3] != 0 {
+                break;
+            }
+            reg[2] = reg[3] * reg[1];
+            if reg[2] == reg[5] {
+                reg[0] += reg[3];
+                break;
+            }
+            reg[1] += 1;
+            if reg[1] > reg[5] {
+                break;
+            }
+        } 
+        reg[3] += 1;
+        if reg[3] > reg[5] {
+            break;
+        }
+    }
+    return reg[0];
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_d19_p1_proper() {
+        let input = generate_input(&std::fs::read_to_string("./input/2018/day19.txt").unwrap());
+        let result = solve_part_1(&input);
+        assert_eq!(1694, result);
+    }
+
+    #[test]
+    fn test_d19_p2_proper() {
+        let input = generate_input(&std::fs::read_to_string("./input/2018/day19.txt").unwrap());
+        let result = solve_part_2(&input);
+        assert_eq!(18964204, result);
+    }
 }

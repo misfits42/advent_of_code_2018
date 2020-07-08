@@ -46,3 +46,22 @@ pub fn solve_part_2(input: &[i32]) -> i32 {
         observed_vals.insert(freq_result);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_d01_p1_proper() {
+        let input = generate_input(&std::fs::read_to_string("./input/2018/day1.txt").unwrap());
+        let result = solve_part_1(&input);
+        assert_eq!(466, result);
+    }
+
+    #[test]
+    fn test_d01_p2_proper() {
+        let input = generate_input(&std::fs::read_to_string("./input/2018/day1.txt").unwrap());
+        let result = solve_part_2(&input);
+        assert_eq!(750, result);
+    }
+}
